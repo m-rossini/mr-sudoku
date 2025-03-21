@@ -80,7 +80,8 @@ class GameController:
 
     def update_stat(self, difficulty: Difficulty, stat: str, value: int):
         """Update a specific statistic for the given difficulty."""
-        self.stats.stats[difficulty][stat] = value
+        current_value = self.stats.stats[difficulty][stat]
+        self.stats.stats[difficulty][stat] = current_value + value
 
     def update_stats(self, won: bool):
         """Update the stats for the current game."""

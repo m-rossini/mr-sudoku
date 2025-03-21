@@ -334,6 +334,7 @@ class SudokuGameWindow:
             if is_valid:
                 value = int(event.char)
                 self.controller.set_cell_value(row, col, value)
+                self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.TOTAL_MOVES, 1)
             else:
                 self.tiles[row][col].flash_invalid()
                 is_game_over, wrong_moves, max_wrong_moves = self.controller.wrong_move_done()
@@ -343,6 +344,7 @@ class SudokuGameWindow:
                 if is_game_over:
                     self.update_status("Game Over")
                     self.disable_grid()
+                    self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.GAMES_LOST, 1)
         
         elif event.keysym in ('Delete', 'BackSpace'):
             self.controller.set_cell_value(row, col, 0)
@@ -367,6 +369,7 @@ class SudokuGameWindow:
         self.controller.start_new_game(difficulty)
         self.enable_grid()
         self.update_status(INITIAL_STATUS)
+        self.controller.update_stat(difficulty, GameStats.GAMES_PLAYED, 1)
     
     def _check_solution(self):
         """Check if the current board state is valid."""
