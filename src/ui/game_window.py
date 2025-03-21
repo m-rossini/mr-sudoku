@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import List, Optional, Tuple, Callable
 from core.difficulty import Difficulty
+from core.stats import GameStats
+from ui.formatters import BasicStatsFormatter, StatsFormatter
 
 class SudokuTile:
     """Represents a single tile in the Sudoku grid."""
@@ -79,6 +81,72 @@ class SudokuTile:
     def grid(self, **kwargs):
         """Grid the tile using the frame's grid method."""
         self.frame.grid(**kwargs)
+    
+    def flash_invalid(self):
+        """Flash the tile to indicate an invalid move."""
+        original_bg = self.label.cget("bg")
+        self.label.config(bg="red")
+        self.label.after(500, lambda: self.label.config(bg=original_bg))
+
+
+INITIAL_STATUS = "Ready!"
+
+class StatsWindow:
+    """Popup window to display game stats."""
+    
+    def __init__(self, parent, controller, initial_difficulty: Difficulty = None, formatter: StatsFormatter = None):
+        """
+        Initialize stats window.
+        
+        Args:
+            parent: Parent window
+            controller: Game controller
+            initial_difficulty: Initial difficulty to display stats for (default from game if not provided)
+            formatter: Stats formatter instance
+        """
+        self.controller = controller
+        self.formatter = formatter or BasicStatsFormatter()
+        self.window = tk.Toplevel(parent)
+        self.window.title("Game Stats")
+        
+        # Use provided initial difficulty or default to EASY
+        initial_diff_value = initial_difficulty.value if initial_difficulty else Difficulty.EASY.value
+        self.difficulty = tk.StringVar(value=initial_diff_value)
+        
+        # Create difficulty selection dropdown
+        tk.Label(self.window, text="Difficulty:").pack(side=tk.LEFT, padx=5, pady=5)
+        difficulty_combo = ttk.Combobox(
+            self.window,
+            textvariable=self.difficulty,
+            values=[difficulty.value for difficulty in Difficulty],
+            state="readonly",
+            width=10
+        )
+        difficulty_combo.pack(side=tk.LEFT, padx=5, pady=5)
+        difficulty_combo.bind("<<ComboboxSelected>>", self.update_stats_display)
+        
+        # Create stats label with monospace font for better alignment
+        self.stats_label = tk.Label(
+            self.window, 
+            text="", 
+            justify=tk.LEFT, 
+            font=("Courier", 10),
+            anchor="w"
+        )
+        self.stats_label.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+        
+        # Initial display
+        self.update_stats_display()
+    
+    def update_stats_display(self, event=None):
+        """Update the stats display based on the selected difficulty."""
+        difficulty = Difficulty(self.difficulty.get())
+        stats = self.controller.get_stats(difficulty)
+        
+        # Use the formatter to format the stats
+        formatted_stats = self.formatter.format_stats(difficulty, stats)
+        
+        self.stats_label.config(text=formatted_stats)
 
 
 class SudokuGameWindow:
@@ -107,8 +175,8 @@ class SudokuGameWindow:
     def _setup_ui(self):
         """Create all UI components by calling specialized methods."""
         # Configure the root window
-        window_size = 2 * self.margin + self.grid_size * self.cell_size
-        self.root.geometry(f"{window_size}x{window_size + 160}")
+        window_size = 2*self.margin + self.grid_size*self.cell_size
+        self.root.geometry(f"{window_size}x{window_size+150}")  # Increased height for status
         self.root.resizable(False, False)
         
         # Create frames for different parts of the UI
@@ -116,9 +184,26 @@ class SudokuGameWindow:
         self._create_board(main_frame)
         self._create_options_frame(main_frame)
         self._create_controls_frame(main_frame)
+        self._create_status_frame(main_frame)  # Add this line
         
         # Bind keyboard events for number input
         self.root.bind("<Key>", self._on_key_press)
+
+    def _create_status_frame(self, main_frame):
+        """Create the status frame with status label."""
+        status_frame = tk.Frame(main_frame, relief=tk.SUNKEN, borderwidth=1)
+        status_frame.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        
+        self.status_label = tk.Label(
+            status_frame, 
+            text=INITIAL_STATUS,  # Define this constant at the top of your file
+            anchor="w", 
+            padx=5, 
+            pady=3
+        )
+        self.status_label.pack(fill=tk.X)
+        
+        return status_frame
     
     def _create_main_frame(self):
         """Create the main frame to hold the board."""
@@ -197,12 +282,19 @@ class SudokuGameWindow:
         
         solve_btn = tk.Button(controls_frame, text="Solve", command=self._solve_game)
         solve_btn.pack(side=tk.RIGHT, padx=5)
+        
+        stats_btn = tk.Button(controls_frame, text="Stats", command=self._show_stats)
+        stats_btn.pack(side=tk.RIGHT, padx=5)
     
-    def _on_difficulty_change(self, event):
-        """Handle difficulty selection changes."""
-        new_difficulty = Difficulty(self.difficulty.get())
-        if messagebox.askyesno("New Game", f"Start a new {new_difficulty.value} game?"):
-            self.controller.start_new_game(new_difficulty)
+    def _show_stats(self):
+        """Show a popup window with the game stats."""
+        # Get current difficulty from the StringVar
+        current_difficulty = Difficulty(self.difficulty.get())
+        StatsWindow(self.root, self.controller, current_difficulty)
+    
+    def update_status(self, status: str):
+        """Update the game status label."""
+        self.status_label.config(text=f"{status}")
     
     def update_board(self):
         """Update the UI to reflect the current game state."""
@@ -233,22 +325,48 @@ class SudokuGameWindow:
         
         row, col = self.selected_cell
         
-        # Use controller to access game model
         if self.controller.is_fixed_cell(row, col):
             return
         
-        # Number keys (1-9)
         if event.char.isdigit() and 1 <= int(event.char) <= 9:
-            value = int(event.char)
-            self.controller.set_cell_value(row, col, value)
+            is_valid = self.controller.is_valid_move(row, col, int(event.char))
+            
+            if is_valid:
+                value = int(event.char)
+                self.controller.set_cell_value(row, col, value)
+            else:
+                self.tiles[row][col].flash_invalid()
+                is_game_over, wrong_moves, max_wrong_moves = self.controller.wrong_move_done()
+                print(f'wrong_moves: {wrong_moves}, max_wrong_moves: {max_wrong_moves}, is_game_over: {is_game_over}')
+                self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.WRONG_MOVES, wrong_moves)
+                self.update_status(f"Wrong Moves: {wrong_moves}/{max_wrong_moves}")
+                if is_game_over:
+                    self.update_status("Game Over")
+                    self.disable_grid()
         
         elif event.keysym in ('Delete', 'BackSpace'):
             self.controller.set_cell_value(row, col, 0)
+    
+    def disable_grid(self):
+        """Disable all tiles in the grid."""
+        for row in range(self.grid_size):
+            for col in range(self.grid_size):
+                self.tiles[row][col].label.unbind("<Button-1>")
+        self.root.unbind("<Key>")
+    
+    def enable_grid(self):
+        """Enable all tiles in the grid."""
+        for row in range(self.grid_size):
+            for col in range(self.grid_size):
+                self.tiles[row][col].label.bind("<Button-1>", self.tiles[row][col]._handle_click)
+        self.root.bind("<Key>", self._on_key_press)
     
     def _new_game(self):
         """Start a new game with the selected difficulty."""
         difficulty = Difficulty(self.difficulty.get())
         self.controller.start_new_game(difficulty)
+        self.enable_grid()
+        self.update_status(INITIAL_STATUS)
     
     def _check_solution(self):
         """Check if the current board state is valid."""
@@ -257,6 +375,13 @@ class SudokuGameWindow:
     def _solve_game(self):
         """Request the game model to solve the puzzle."""
         self.controller.solve_game()
+    
+    def _on_difficulty_change(self, event):
+        """Handle difficulty selection changes."""
+        new_difficulty = Difficulty(self.difficulty.get())
+        if messagebox.askyesno("New Game", f"Start a new {new_difficulty.value} game?"):
+            self.controller.start_new_game(new_difficulty)
+            self.enable_grid()
     
     def show_message(self, title: str, message: str):
         """Show a message box with the given title and message."""

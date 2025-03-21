@@ -1,19 +1,32 @@
 from core.game import SudokuGame
 from core.difficulty import Difficulty
+from core.stats import GameStats
 from ui.game_window import SudokuGameWindow
+import time
 
 class GameController:
     """Controller to manage the game logic and UI interaction."""
     
+    # Maximum number of wrong moves allowed
+    MAX_WRONG_MOVES = 3
+    
+    # Constant to indicate game over state
+    GAME_OVER = -1
+
     def __init__(self, game: SudokuGame, window: SudokuGameWindow):
         self.game = game
         self.window = window
         self.window.set_controller(self)
+        self.wrong_moves = 0
+        self.stats = GameStats()
         self.start_new_game(Difficulty.MEDIUM)
     
     def start_new_game(self, difficulty: Difficulty):
         """Start a new game with the given difficulty."""
+        self.start_time = time.time()
         self.game.new_game(difficulty)
+        self.reset_wrong_moves()
+        self.stats.stats[difficulty][GameStats.GAMES_PLAYED] += 1
         self.window.update_board()
     
     def set_cell_value(self, row: int, col: int, value: int):
@@ -26,6 +39,7 @@ class GameController:
         if self.game.check_board():
             if self.game.is_complete():
                 self.window.show_message("Success", "The puzzle is solved correctly!")
+                self.update_stats(True)
             else:
                 self.window.show_message("Valid", "So far, so good. Keep going!")
         else:
@@ -44,5 +58,37 @@ class GameController:
         if self.game.solve():
             self.window.update_board()
             self.window.show_message("Solved", "Puzzle solved successfully!")
+            self.update_stats(True)
         else:
             self.window.show_message("Error", "This puzzle cannot be solved!")
+    
+    def wrong_move_done(self):
+        """Increment the wrong moves counter and check for game over."""
+        self.wrong_moves += 1
+        return (self.is_game_over(),self.wrong_moves,self.MAX_WRONG_MOVES)
+    
+    def is_game_over(self) -> bool:
+        """Check if the game is over due to too many wrong moves."""
+        return self.wrong_moves >= self.MAX_WRONG_MOVES
+    
+    def is_valid_move(self, row: int, col: int, value: int) -> bool:
+        return  self.game.is_valid_move(row, col, value)
+        
+    def reset_wrong_moves(self):
+        """Reset the wrong moves counter."""
+        self.wrong_moves = 0
+
+    def update_stat(self, difficulty: Difficulty, stat: str, value: int):
+        """Update a specific statistic for the given difficulty."""
+        self.stats.stats[difficulty][stat] = value
+
+    def update_stats(self, won: bool):
+        """Update the stats for the current game."""
+        difficulty = Difficulty(self.window.difficulty.get())
+        time_taken = time.time() - self.start_time
+        moves = sum(sum(1 for cell in row if cell != 0) for row in self.game.get_board())
+        self.stats.update_stats(difficulty, won, moves, self.wrong_moves, time_taken)
+    
+    def get_stats(self, difficulty: Difficulty) -> dict[str, int]:
+        """Return the stats for the given difficulty level."""
+        return self.stats.get_stats(difficulty)

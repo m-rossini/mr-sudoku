@@ -8,7 +8,6 @@ class SudokuGame:
     def __init__(self, generators: Dict[Difficulty, SudokuGenerator]):
         """Initialize a new game with a dictionary of generators."""
         self.generators = generators
-
         self.board = [[0 for _ in range(9)] for _ in range(9)]
         self.original_board = [[0 for _ in range(9)] for _ in range(9)]
     
@@ -47,3 +46,39 @@ class SudokuGame:
         """Solve the current puzzle state."""
         # Implement a solving algorithm (backtracking)
         pass
+
+    def is_valid_move(self, row: int, col: int, value: int) -> bool:
+        """
+        Check if placing value at the specified position would be a valid move.
+        
+        Args:
+            row: Row index (0-8)
+            col: Column index (0-8)
+            value: Number to check (1-9)
+            
+        Returns:
+            bool: True if the move is valid, False otherwise
+        """
+        # Skip validation for empty cells (value 0)
+        if value == 0:
+            return True
+        
+        # Check row
+        for c in range(9):
+            if c != col and self.board[row][c] == value:
+                return False
+        
+        # Check column
+        for r in range(9):
+            if r != row and self.board[r][col] == value:
+                return False
+        
+        # Check 3x3 box
+        box_row, box_col = 3 * (row // 3), 3 * (col // 3)
+        for r in range(box_row, box_row + 3):
+            for c in range(box_col, box_col + 3):
+                if (r != row or c != col) and self.board[r][c] == value:
+                    return False
+        
+        # If we get here, the move is valid
+        return True
