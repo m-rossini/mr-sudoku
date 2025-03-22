@@ -36,7 +36,7 @@ class GameController:
     
     def check_solution(self):
         """Check if the current board state is valid."""
-        if self.game.check_board():
+        if self.game.is_board_valid():
             if self.game.is_complete():
                 self.window.show_message("Success", "The puzzle is solved correctly!")
                 self.update_stats(True)
@@ -44,6 +44,10 @@ class GameController:
                 self.window.show_message("Valid", "So far, so good. Keep going!")
         else:
             self.window.show_message("Error", "There are conflicts on the board.")
+    
+    def is_game_complete(self) -> bool:
+        """Check if the game is complete."""
+        return self.game.is_complete()
     
     def get_board(self):
         """Get the current board state."""

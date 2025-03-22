@@ -3,183 +3,46 @@ from tkinter import ttk, messagebox
 from typing import List, Optional, Tuple, Callable
 from core.difficulty import Difficulty
 from core.stats import GameStats
-from ui.formatters import BasicStatsFormatter, StatsFormatter
-
-class SudokuTile:
-    """Represents a single tile in the Sudoku grid."""
-    
-    def __init__(self, parent, row: int, col: int, size: int, value: int, on_click_callback: Callable):
-        """
-        Initialize a tile.
-        
-        Args:
-            parent: The parent widget
-            row: The tile's row in the 9x9 grid
-            col: The tile's column in the 9x9 grid
-            size: The size of the tile in pixels
-            on_click_callback: Function to call when tile is clicked
-        """
-        self.row = row
-        self.col = col
-        self.value = value if value is not None else 0
-        self.is_fixed = False
-        self.is_selected = False
-        self.on_click = on_click_callback
-        
-        # Create the frame for the tile
-        self.frame = tk.Frame(
-            parent,
-            width=size,
-            height=size,
-            borderwidth=1,
-            relief=tk.RAISED
-        )
-        self.frame.grid_propagate(False)  # Keep the frame size fixed
-        
-        # Create the label for displaying the value
-        self.label = tk.Label(
-            self.frame,
-            font=("Arial", 18, "bold"),
-            width=2,
-            height=1,
-            bg="white"
-        )
-        self.label.pack(expand=True, fill=tk.BOTH)
-        
-        # Bind the click event
-        self.label.bind("<Button-1>", self._handle_click)
-    
-    def _handle_click(self, event):
-        """Handle click events on the tile."""
-        print("Tile clicked:", self.row, self.col)
-        self.on_click(self.row, self.col)
-    
-    def set_value(self, value: int, is_fixed: bool = False):
-        """Set the tile's value and whether it's a fixed (original) tile."""
-        self.value = value
-        self.is_fixed = is_fixed
-        self.update_display()
-    
-    def set_selected(self, selected: bool):
-        """Mark the tile as selected or not."""
-        self.is_selected = selected
-        self.update_display()
-    
-    def update_display(self):
-        """Update the tile's appearance based on its state."""
-        # Update the displayed text
-        self.label.config(text="" if self.value == 0 else str(self.value))
-        
-        # Set the appropriate colors based on state
-        print(f'is_selected: {self.is_selected}, is_fixed: {self.is_fixed}')
-        if self.is_selected:
-            self.label.config(bg="#c5e1e8")  # Light blue for selection
-        elif self.is_fixed:
-            self.label.config(bg="#f0f0f0", fg="black")  # Gray for fixed tiles
-        else:
-            self.label.config(bg="white", fg="blue")  # Blue text for user entries
-    
-    def grid(self, **kwargs):
-        """Grid the tile using the frame's grid method."""
-        self.frame.grid(**kwargs)
-    
-    def flash_invalid(self):
-        """Flash the tile to indicate an invalid move."""
-        original_bg = self.label.cget("bg")
-        self.label.config(bg="red")
-        self.label.after(500, lambda: self.label.config(bg=original_bg))
-    
-    def highlight(self, bg_hex_color="#d4edda"):
-        """Highlight the tile with light green background."""
-        self.label.config(bg=bg_hex_color)  # Light green for highlighting
-    
-    def clear_highlight(self):
-        """Clear the highlight from the tile."""
-        self.update_display()
-
+from ui.ui_components import NumberPanel, SudokuTile, StatsWindow
 
 INITIAL_STATUS = "Ready!"
-
-class StatsWindow:
-    """Popup window to display game stats."""
-    
-    def __init__(self, parent, controller, initial_difficulty: Difficulty = None, formatter: StatsFormatter = None):
-        """
-        Initialize stats window.
-        
-        Args:
-            parent: Parent window
-            controller: Game controller
-            initial_difficulty: Initial difficulty to display stats for (default from game if not provided)
-            formatter: Stats formatter instance
-        """
-        self.controller = controller
-        self.formatter = formatter or BasicStatsFormatter()
-        self.window = tk.Toplevel(parent)
-        self.window.title("Game Stats")
-        
-        # Use provided initial difficulty or default to EASY
-        initial_diff_value = initial_difficulty.value if initial_difficulty else Difficulty.EASY.value
-        self.difficulty = tk.StringVar(value=initial_diff_value)
-        
-        # Create difficulty selection dropdown
-        tk.Label(self.window, text="Difficulty:").pack(side=tk.LEFT, padx=5, pady=5)
-        difficulty_combo = ttk.Combobox(
-            self.window,
-            textvariable=self.difficulty,
-            values=[difficulty.value for difficulty in Difficulty],
-            state="readonly",
-            width=10
-        )
-        difficulty_combo.pack(side=tk.LEFT, padx=5, pady=5)
-        difficulty_combo.bind("<<ComboboxSelected>>", self.update_stats_display)
-        
-        # Create stats label with monospace font for better alignment
-        self.stats_label = tk.Label(
-            self.window, 
-            text="", 
-            justify=tk.LEFT, 
-            font=("Courier", 10),
-            anchor="w"
-        )
-        self.stats_label.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
-        
-        # Initial display
-        self.update_stats_display()
-    
-    def update_stats_display(self, event=None):
-        """Update the stats display based on the selected difficulty."""
-        difficulty = Difficulty(self.difficulty.get())
-        stats = self.controller.get_stats(difficulty)
-        
-        # Use the formatter to format the stats
-        formatted_stats = self.formatter.format_stats(difficulty, stats)
-        
-        self.stats_label.config(text=formatted_stats)
-
-
 class SudokuGameWindow:
     """Tkinter UI for the Sudoku game using individual tile objects."""
     
-    def __init__(self, root: tk.Tk):
-        """
-        Initialize the Sudoku game window.
-        
-        Args:
-            root: The Tkinter root window
-            controller: Optional game controller (can be set later)
-        """
+    def __init__(self, root: tk.Tk, controller=None):
+        """Initialize the Sudoku game window."""
         self.root = root
-        self.controller = None
-        self.cell_size = 50  
+        self.controller = controller
+        self.cell_size = 50
         self.margin = 20
         self.grid_size = 9
-        self.difficulty = tk.StringVar(value="Medium")  
+        self.difficulty = tk.StringVar(value="Medium")
         
+        # UI state
         self.selected_cell = None
         self.tiles = [[None for _ in range(9)] for _ in range(9)]
         
+        # Register the window close event handler
+        self.root.protocol("WM_DELETE_WINDOW", self._on_window_close)
+        
         self._setup_ui()
+    
+    def _on_window_close(self):
+        """Handle window close event."""
+        # Ask user to confirm exit
+        completed = self.controller.is_game_complete()
+        if completed:
+            msg = "Congratulations! You have completed the game"
+            self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.GAMES_WON, 1)
+        else:
+            msg = "You did not complete the game"
+            self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.GAMES_LOST, 1)
+
+        if messagebox.askyesno("Quit", f"{msg}. Are you sure you want to quit? " ):
+            if self.controller:
+                self.controller.save_stats()
+            
+            self.root.destroy()
     
     def set_controller(self, controller):
         """Set the game controller after initialization."""
@@ -190,12 +53,13 @@ class SudokuGameWindow:
         """Create all UI components by calling specialized methods."""
         # Configure the root window
         window_size = 2*self.margin + self.grid_size*self.cell_size
-        self.root.geometry(f"{window_size}x{window_size+150}")  # Increased height for status
+        self.root.geometry(f"{window_size}x{window_size+200}")  # Increased height for status and controls
         self.root.resizable(False, False)
         
         # Create frames for different parts of the UI
         main_frame = self._create_main_frame()
         self._create_board(main_frame)
+        self._create_number_panel(main_frame)  # Add this line
         self._create_options_frame(main_frame)
         self._create_controls_frame(main_frame)
         self._create_status_frame(main_frame)  # Add this line
@@ -206,7 +70,7 @@ class SudokuGameWindow:
     def _create_status_frame(self, main_frame):
         """Create the status frame with status label."""
         status_frame = tk.Frame(main_frame, relief=tk.SUNKEN, borderwidth=1)
-        status_frame.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        status_frame.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(10, 0))
         
         self.status_label = tk.Label(
             status_frame, 
@@ -261,11 +125,16 @@ class SudokuGameWindow:
                         # Store the tile in our grid
                         self.tiles[row][col] = tile
     
+    def _create_number_panel(self, main_frame):
+        """Create the number panel below the Sudoku board."""
+        self.number_panel = NumberPanel(main_frame, self._on_number_tile_click)
+        self.number_panel.frame.grid(row=3, column=0, columnspan=3, pady=(10, 0), sticky="ew")
+    
     def _create_options_frame(self, main_frame):
         """Create the options frame."""
         # Create frame with border
         options_frame = tk.Frame(main_frame, relief=tk.GROOVE, borderwidth=1)
-        options_frame.grid(row=3, column=0, columnspan=3, pady=(10, 0), sticky="ew")
+        options_frame.grid(row=4, column=0, columnspan=3, pady=(10, 0), sticky="ew")
         
         # Add difficulty label and dropdown
         tk.Label(options_frame, text="Difficulty:").pack(side=tk.LEFT, padx=5, pady=5)
@@ -285,7 +154,7 @@ class SudokuGameWindow:
         """Create the game controls frame with buttons."""
         # Create controls frame
         controls_frame = tk.Frame(main_frame)
-        controls_frame.grid(row=4, column=0, columnspan=3, pady=10, sticky="ew")
+        controls_frame.grid(row=5, column=0, columnspan=3, pady=10, sticky="ew")
         
         # Add control buttons
         new_game_btn = tk.Button(controls_frame, text="New Game", command=self._new_game)
@@ -317,6 +186,7 @@ class SudokuGameWindow:
             return 
         
         self._update_tile_appearances()
+        self.update_number_panel()
     
     def _on_cell_click(self, row: int, col: int):
         """Handle cell click events."""
@@ -366,27 +236,37 @@ class SudokuGameWindow:
         if self.controller.is_fixed_cell(row, col):
             return
         
+        # Number keys (1-9)
         if event.char.isdigit() and 1 <= int(event.char) <= 9:
-            is_valid = self.controller.is_valid_move(row, col, int(event.char))
+            value = int(event.char)
+            is_valid = self.controller.is_valid_move(row, col, value)
             
             if is_valid:
-                value = int(event.char)
-                self.controller.set_cell_value(row, col, value)
-                self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.TOTAL_MOVES, 1)
-                self.clear_highlights()
-                self.highlight_tiles_with_value(value)
+                self._handle_valid_move(row, col, value)
             else:
-                self.tiles[row][col].flash_invalid()
-                is_game_over, wrong_moves, max_wrong_moves = self.controller.wrong_move_done()
-                print(f'wrong_moves: {wrong_moves}, max_wrong_moves: {max_wrong_moves}, is_game_over: {is_game_over}')
-                self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.WRONG_MOVES, 1)
-                self.update_status(f"Wrong Moves: {wrong_moves}/{max_wrong_moves}")
-                if is_game_over:
-                    self.__game_over()
+                self._handle_invalid_move(row, col, value)
         
+        # Delete/backspace to clear a cell
         elif event.keysym in ('Delete', 'BackSpace'):
             self.controller.set_cell_value(row, col, 0)
-            self.clear_highlights()
+            self.update_board()
+
+    def _handle_valid_move(self, row: int, col: int, value: int):
+        """Handle a valid move."""
+        self.controller.set_cell_value(row, col, value)
+        self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.TOTAL_MOVES, 1)
+        self.update_number_panel()
+    
+    def _handle_invalid_move(self, row: int, col: int, value: int):
+        """Handle an invalid move."""
+        self.tiles[row][col].flash_invalid()
+        is_game_over, wrong_moves, max_wrong_moves = self.controller.wrong_move_done()
+        print(f'Invalid move: {value} at ({row},{col}), wrong_moves: {wrong_moves}/{max_wrong_moves}')
+        self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.WRONG_MOVES, 1)
+        self.update_status(f"Invalid: {value} at ({row+1},{col+1}) - Wrong Moves: {wrong_moves}/{max_wrong_moves}")
+        self.update_number_panel()
+        if is_game_over:
+            self.__game_over()
     
     def __game_over(self):
         """Handle game over state."""
@@ -416,6 +296,7 @@ class SudokuGameWindow:
         self.enable_grid()
         self.update_status(INITIAL_STATUS)
         self.controller.update_stat(difficulty, GameStats.GAMES_PLAYED, 1)
+        self.update_number_panel()
     
     def _check_solution(self):
         """Check if the current board state is valid."""
@@ -435,3 +316,25 @@ class SudokuGameWindow:
     def show_message(self, title: str, message: str):
         """Show a message box with the given title and message."""
         messagebox.showinfo(title, message)
+    
+    def _on_number_tile_click(self, number: int):
+        """Handle number tile click events."""
+        if self.selected_cell:
+            row, col = self.selected_cell
+            if not self.controller.is_fixed_cell(row, col):
+                is_valid = self.controller.is_valid_move(row, col, number)
+                if is_valid:
+                    self.controller.set_cell_value(row, col, number)
+                    self.update_board()
+    
+    def update_number_panel(self):
+        """Update the number panel with the current counts."""
+        counts = [9] * 9
+        board = self.controller.get_board()
+        print(f'>>>board: {board}')
+        for row in range(self.grid_size):
+            for col in range(self.grid_size):
+                value = board[row][col]
+                if value != 0:
+                    counts[value-1] -= 1
+        self.number_panel.update_counts(counts)

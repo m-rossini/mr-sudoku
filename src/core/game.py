@@ -32,15 +32,28 @@ class SudokuGame:
         if not self.is_fixed_cell(row, col):
             self.board[row][col] = value
     
-    def check_board(self) -> bool:
+    def is_board_valid(self) -> bool:
         """Check if the current board state is valid."""
-        # Implement Sudoku validation logic
-        pass
+        for row in range(9):
+            for col in range(9):
+                value = self.board[row][col]
+                if value != 0:
+                    # Temporarily empty the cell to avoid self-check
+                    self.board[row][col] = 0
+                    if not self.is_valid_move(row, col, value):
+                        self.board[row][col] = value
+                        return False
+                    # Restore the cell value
+                    self.board[row][col] = value
+        return True
     
     def is_complete(self) -> bool:
         """Check if the puzzle is solved correctly."""
-        # Check if board is full and valid
-        pass
+        for row in self.board:
+            if 0 in row:
+                return False
+        
+        return self.is_board_valid()
     
     def solve(self) -> bool:
         """Solve the current puzzle state."""
