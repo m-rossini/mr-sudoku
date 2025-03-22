@@ -1,18 +1,17 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from typing import List, Optional, Tuple, Callable
 from core.difficulty import Difficulty
 from core.stats import GameStats
-from ui.ui_components import NumberPanel, SudokuTile, StatsWindow
+from ui.ui_components import NumberPanel, StatsWindow, SudokuBoard 
 
 INITIAL_STATUS = "Ready!"
 class SudokuGameWindow:
     """Tkinter UI for the Sudoku game using individual tile objects."""
     
-    def __init__(self, root: tk.Tk, controller=None):
+    def __init__(self, root: tk.Tk):
         """Initialize the Sudoku game window."""
         self.root = root
-        self.controller = controller
+        self.controller = None
         self.cell_size = 50
         self.margin = 20
         self.grid_size = 9
@@ -24,8 +23,25 @@ class SudokuGameWindow:
         
         # Register the window close event handler
         self.root.protocol("WM_DELETE_WINDOW", self._on_window_close)
-        
         self._setup_ui()
+    
+    def _setup_ui(self):
+        """Create all UI components by calling specialized methods."""
+        # Configure the root window
+        window_size = 2 * self.margin + self.grid_size * self.cell_size
+        self.root.geometry(f"{window_size}x{window_size + 200}") 
+        self.root.resizable(False, False)
+        
+        # Create frames for different parts of the UI
+        main_frame = self._create_main_frame()
+        self._create_board(main_frame)
+        self._create_number_panel(main_frame)
+        self._create_options_frame(main_frame)
+        self._create_controls_frame(main_frame)
+        self._create_status_frame(main_frame)
+        
+        # Bind keyboard events for number input
+        self.root.bind("<Key>", self._on_key_press)
     
     def _on_window_close(self):
         """Handle window close event."""
@@ -49,23 +65,11 @@ class SudokuGameWindow:
         self.controller = controller
         self.update_board()
     
-    def _setup_ui(self):
-        """Create all UI components by calling specialized methods."""
-        # Configure the root window
-        window_size = 2*self.margin + self.grid_size*self.cell_size
-        self.root.geometry(f"{window_size}x{window_size+200}")  # Increased height for status and controls
-        self.root.resizable(False, False)
-        
-        # Create frames for different parts of the UI
-        main_frame = self._create_main_frame()
-        self._create_board(main_frame)
-        self._create_number_panel(main_frame)  # Add this line
-        self._create_options_frame(main_frame)
-        self._create_controls_frame(main_frame)
-        self._create_status_frame(main_frame)  # Add this line
-        
-        # Bind keyboard events for number input
-        self.root.bind("<Key>", self._on_key_press)
+    def _create_main_frame(self):
+        """Create the main frame to hold the board."""
+        main_frame = tk.Frame(self.root, padx=self.margin, pady=self.margin)
+        main_frame.pack()
+        return main_frame
 
     def _create_status_frame(self, main_frame):
         """Create the status frame with status label."""
@@ -74,7 +78,7 @@ class SudokuGameWindow:
         
         self.status_label = tk.Label(
             status_frame, 
-            text=INITIAL_STATUS,  # Define this constant at the top of your file
+            text=INITIAL_STATUS, 
             anchor="w", 
             padx=5, 
             pady=3
@@ -83,47 +87,10 @@ class SudokuGameWindow:
         
         return status_frame
     
-    def _create_main_frame(self):
-        """Create the main frame to hold the board."""
-        main_frame = tk.Frame(self.root, padx=self.margin, pady=self.margin)
-        main_frame.pack()
-        return main_frame
-    
     def _create_board(self, main_frame):
-        """Create the Sudoku board with boxes and tiles."""
-        # Create 3x3 grid of box frames (each containing 3x3 cells)
-        self.boxes = []
-        for box_row in range(3):
-            for box_col in range(3):
-                # Create a frame for each 3x3 box with a visible border
-                box = tk.Frame(
-                    main_frame, 
-                    borderwidth=2,
-                    relief=tk.RAISED
-                )
-                box.grid(row=box_row, column=box_col, padx=1, pady=1)
-                self.boxes.append(box)
-                
-                # Create 3x3 cells inside each box
-                for cell_row in range(3):
-                    for cell_col in range(3):
-                        # Calculate the actual row and column in the full 9x9 grid
-                        row = box_row * 3 + cell_row
-                        col = box_col * 3 + cell_col
-                        
-                        # Create a tile and add it to our grid
-                        tile = SudokuTile(
-                            box, 
-                            row, 
-                            col, 
-                            self.cell_size,
-                            0,
-                            self._on_cell_click
-                        )
-                        tile.grid(row=cell_row, column=cell_col)
-                        
-                        # Store the tile in our grid
-                        self.tiles[row][col] = tile
+        """Create the Sudoku board."""
+        self.board = SudokuBoard(main_frame, self._on_cell_click)
+        self.board.parent.grid(row=0, column=0, columnspan=3, padx=10, pady=10)
     
     def _create_number_panel(self, main_frame):
         """Create the number panel below the Sudoku board."""
@@ -185,7 +152,8 @@ class SudokuGameWindow:
             print("No controller set for SudokuGameWindow")
             return 
         
-        self._update_tile_appearances()
+        board = self.controller.get_board()
+        self.board.update_board(board, self.selected_cell)
         self.update_number_panel()
     
     def _on_cell_click(self, row: int, col: int):
@@ -199,32 +167,7 @@ class SudokuGameWindow:
     def _update_tile_appearances(self):
         """Update the appearance of all tiles based on current game state."""
         board = self.controller.get_board()
-        
-        # Get selected value if there is a selection
-        selected_value = None
-        if self.selected_cell:
-            selected_row, selected_col = self.selected_cell
-            selected_value = board[selected_row][selected_col]
-        
-        # Update all tiles
-        for row in range(self.grid_size):
-            for col in range(self.grid_size):
-                tile = self.tiles[row][col]
-                
-                # Set selection state
-                is_selected = self.selected_cell and (row, col) == self.selected_cell
-                tile.set_selected(is_selected)
-                
-                # Get value and fixed status
-                value = board[row][col]
-                is_fixed = self.controller.is_fixed_cell(row, col)
-                
-                # Update base appearance
-                tile.set_value(value, is_fixed)
-                
-                # Highlight cells with same value (if selected value is not 0)
-                if selected_value and selected_value != 0 and value == selected_value and not is_selected:
-                    tile.highlight("#e1f5fe")  # Light blue for same value
+        self.board.update_board(board, self.selected_cell)
 
     def _on_key_press(self, event):
         """Handle keyboard input."""

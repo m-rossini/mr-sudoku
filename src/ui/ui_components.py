@@ -2,6 +2,7 @@ import tkinter as tk
 from typing import Callable, List
 from ui.formatters import BasicStatsFormatter, StatsFormatter
 from core.difficulty import Difficulty  # Add this import
+from typing import List, Optional, Tuple, Callable
 
 class SudokuTile:
     """Represents a single tile in the Sudoku grid."""
@@ -243,3 +244,65 @@ class StatsWindow:
         formatted_stats = self.formatter.format_stats(difficulty, stats)
         
         self.stats_label.config(text=formatted_stats)
+
+class SudokuBoard:
+    """Represents the Sudoku board with 9x9 tiles."""
+    
+    def __init__(self, parent, on_tile_click: Callable):
+        """
+        Initialize the Sudoku board.
+        
+        Args:
+            parent: The parent widget
+            on_tile_click: Function to call when a tile is clicked
+        """
+        self.parent = parent
+        self.on_tile_click = on_tile_click
+        self.tiles = [[None for _ in range(9)] for _ in range(9)]
+        self._create_board()
+    
+    def _create_board(self):
+        """Create the Sudoku board with boxes and tiles."""
+        self.boxes = []
+        for box_row in range(3):
+            for box_col in range(3):
+                box = tk.Frame(
+                    self.parent, 
+                    borderwidth=2,
+                    relief=tk.RAISED
+                )
+                box.grid(row=box_row, column=box_col, padx=1, pady=1)
+                self.boxes.append(box)
+                
+                for cell_row in range(3):
+                    for cell_col in range(3):
+                        row = box_row * 3 + cell_row
+                        col = box_col * 3 + cell_col
+                        tile = SudokuTile(
+                            box, 
+                            row, 
+                            col, 
+                            50,  # Assuming cell size is 50
+                            0,
+                            self.on_tile_click
+                        )
+                        tile.grid(row=cell_row, column=cell_col)
+                        self.tiles[row][col] = tile
+    
+    def update_board(self, board: List[List[int]], selected_cell: Optional[Tuple[int, int]] = None):
+        """Update the UI to reflect the current game state."""
+        selected_value = None
+        if selected_cell:
+            selected_row, selected_col = selected_cell
+            selected_value = board[selected_row][selected_col]
+        
+        for row in range(9):
+            for col in range(9):
+                tile = self.tiles[row][col]
+                is_selected = selected_cell and (row, col) == selected_cell
+                tile.set_selected(is_selected)
+                value = board[row][col]
+                is_fixed = value != 0
+                tile.set_value(value, is_fixed)
+                if selected_value and selected_value != 0 and value == selected_value and not is_selected:
+                    tile.highlight("#e1f5fe")
