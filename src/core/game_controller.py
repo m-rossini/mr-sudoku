@@ -93,3 +93,7 @@ class GameController:
     def get_stats(self, difficulty: Difficulty) -> dict[str, int]:
         """Return the stats for the given difficulty level."""
         return self.stats.get_stats(difficulty)
+    
+    def save_stats(self):
+        """Save the game statistics to a file."""
+        self.stats.save_stats()

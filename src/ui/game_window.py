@@ -339,16 +339,21 @@ class SudokuGameWindow:
                 self.tiles[row][col].flash_invalid()
                 is_game_over, wrong_moves, max_wrong_moves = self.controller.wrong_move_done()
                 print(f'wrong_moves: {wrong_moves}, max_wrong_moves: {max_wrong_moves}, is_game_over: {is_game_over}')
-                self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.WRONG_MOVES, wrong_moves)
+                self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.WRONG_MOVES, 1)
                 self.update_status(f"Wrong Moves: {wrong_moves}/{max_wrong_moves}")
                 if is_game_over:
-                    self.update_status("Game Over")
-                    self.disable_grid()
-                    self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.GAMES_LOST, 1)
+                    self.__game_over()
         
         elif event.keysym in ('Delete', 'BackSpace'):
             self.controller.set_cell_value(row, col, 0)
     
+    def __game_over(self):
+        """Handle game over state."""
+        self.update_status("Game Over")
+        self.disable_grid()
+        self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.GAMES_LOST, 1)
+        self.controller.save_stats()
+        
     def disable_grid(self):
         """Disable all tiles in the grid."""
         for row in range(self.grid_size):
