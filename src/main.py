@@ -33,7 +33,8 @@ def main():
             Difficulty.HARD: SimpleSudokuGenerator()
         }
         game = SudokuGame(generators)
-        window = SudokuGameWindow(root, game)
+        
+        window = SudokuGameWindow(root)  
         controller = GameController(game, window)
         
         # Start the Tkinter event loop

@@ -71,6 +71,7 @@ class SudokuTile:
         self.label.config(text="" if self.value == 0 else str(self.value))
         
         # Set the appropriate colors based on state
+        print(f'is_selected: {self.is_selected}, is_fixed: {self.is_fixed}')
         if self.is_selected:
             self.label.config(bg="#c5e1e8")  # Light blue for selection
         elif self.is_fixed:
@@ -87,6 +88,14 @@ class SudokuTile:
         original_bg = self.label.cget("bg")
         self.label.config(bg="red")
         self.label.after(500, lambda: self.label.config(bg=original_bg))
+    
+    def highlight(self, bg_hex_color="#d4edda"):
+        """Highlight the tile with light green background."""
+        self.label.config(bg=bg_hex_color)  # Light green for highlighting
+    
+    def clear_highlight(self):
+        """Clear the highlight from the tile."""
+        self.update_display()
 
 
 INITIAL_STATUS = "Ready!"
@@ -152,25 +161,30 @@ class StatsWindow:
 class SudokuGameWindow:
     """Tkinter UI for the Sudoku game using individual tile objects."""
     
-    def __init__(self, root: tk.Tk, game_model):#TODO Should I remove game_model from the constructor?
+    def __init__(self, root: tk.Tk):
+        """
+        Initialize the Sudoku game window.
+        
+        Args:
+            root: The Tkinter root window
+            controller: Optional game controller (can be set later)
+        """
         self.root = root
-        # self.game = game_model #TODO Do i really need the game model in the game window? Shouldn't be a controller concern? 
         self.controller = None
-        self.cell_size = 50  # Size of each cell
+        self.cell_size = 50  
         self.margin = 20
         self.grid_size = 9
-        self.difficulty = tk.StringVar(value=Difficulty.MEDIUM.value)  # Default difficulty
+        self.difficulty = tk.StringVar(value="Medium")  
         
-        # UI state
-        self.selected_cell: Optional[Tuple[int, int]] = None
-        self.tiles: List[List[SudokuTile]] = [[None for _ in range(9)] for _ in range(9)]
+        self.selected_cell = None
+        self.tiles = [[None for _ in range(9)] for _ in range(9)]
         
         self._setup_ui()
-        # self.update_board() #TODO Given the controller is not set yet, this should not be called during initialization
     
     def set_controller(self, controller):
-        """Set the controller for the game window."""
+        """Set the game controller after initialization."""
         self.controller = controller
+        self.update_board()
     
     def _setup_ui(self):
         """Create all UI components by calling specialized methods."""
@@ -298,26 +312,50 @@ class SudokuGameWindow:
     
     def update_board(self):
         """Update the UI to reflect the current game state."""
-        # board = game.get_board()  # Use getter method instead of direct attribute access
-        board = self.controller.get_board()
-        for row in range(self.grid_size):
-            for col in range(self.grid_size):
-                value = board[row][col]
-                is_fixed = self.controller.is_fixed_cell(row, col)
-                is_selected = self.selected_cell == (row, col)
-                
-                # Update the tile
-                self.tiles[row][col].set_value(value, is_fixed)
-                self.tiles[row][col].set_selected(is_selected)
+        if not self.controller:
+            print("No controller set for SudokuGameWindow")
+            return 
+        
+        self._update_tile_appearances()
     
     def _on_cell_click(self, row: int, col: int):
         """Handle cell click events."""
+        # Update selection state
         self.selected_cell = (row, col)
-        # Just update the selected status without reloading the entire board
-        for r in range(self.grid_size):
-            for c in range(self.grid_size):
-                self.tiles[r][c].set_selected((r, c) == self.selected_cell)
-    
+        
+        # Update the visual state of all tiles
+        self._update_tile_appearances()
+
+    def _update_tile_appearances(self):
+        """Update the appearance of all tiles based on current game state."""
+        board = self.controller.get_board()
+        
+        # Get selected value if there is a selection
+        selected_value = None
+        if self.selected_cell:
+            selected_row, selected_col = self.selected_cell
+            selected_value = board[selected_row][selected_col]
+        
+        # Update all tiles
+        for row in range(self.grid_size):
+            for col in range(self.grid_size):
+                tile = self.tiles[row][col]
+                
+                # Set selection state
+                is_selected = self.selected_cell and (row, col) == self.selected_cell
+                tile.set_selected(is_selected)
+                
+                # Get value and fixed status
+                value = board[row][col]
+                is_fixed = self.controller.is_fixed_cell(row, col)
+                
+                # Update base appearance
+                tile.set_value(value, is_fixed)
+                
+                # Highlight cells with same value (if selected value is not 0)
+                if selected_value and selected_value != 0 and value == selected_value and not is_selected:
+                    tile.highlight("#e1f5fe")  # Light blue for same value
+
     def _on_key_press(self, event):
         """Handle keyboard input."""
         if not self.selected_cell:
@@ -335,6 +373,8 @@ class SudokuGameWindow:
                 value = int(event.char)
                 self.controller.set_cell_value(row, col, value)
                 self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.TOTAL_MOVES, 1)
+                self.clear_highlights()
+                self.highlight_tiles_with_value(value)
             else:
                 self.tiles[row][col].flash_invalid()
                 is_game_over, wrong_moves, max_wrong_moves = self.controller.wrong_move_done()
@@ -346,6 +386,7 @@ class SudokuGameWindow:
         
         elif event.keysym in ('Delete', 'BackSpace'):
             self.controller.set_cell_value(row, col, 0)
+            self.clear_highlights()
     
     def __game_over(self):
         """Handle game over state."""
