@@ -230,7 +230,6 @@ class SudokuGameWindow:
         """Update the number panel with the current counts."""
         counts = [9] * 9
         board = self.controller.get_board()
-        print(f'>>>board: {board}')
         for row in range(self.grid_size):
             for col in range(self.grid_size):
                 value = board[row][col]

@@ -14,7 +14,6 @@ class SimpleSudokuGenerator(SudokuGenerator):
     
     def generate(self, difficulty: str) -> List[List[int]]:
         """Generate a new Sudoku puzzle based on the difficulty."""
-        print(f"In generator itself.Generating new {difficulty} puzzle")
         board1 = [
                 [0,2,1,5,3,0,6,0,0],
                 [0,0,0,0,0,6,7,0,0],

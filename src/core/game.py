@@ -13,11 +13,8 @@ class SudokuGame:
     
     def new_game(self, difficulty: Difficulty):
         """Generate a new Sudoku puzzle based on the difficulty."""
-        print(f"SudokuGame::new_game::Generating new {difficulty.name} puzzle")
         self.board = self.generators[difficulty].generate(difficulty.name)
-        print(f'board: {self.board}')
         self.original_board = [row[:] for row in self.board]
-        print(f'original_board: {self.original_board}')
     
     def get_board(self) -> List[List[int]]:
         """Return the current board state."""

@@ -155,7 +155,6 @@ class NumberPanel:
         
     def update_counts(self, counts: List[int]):
         """Update the counts of all number tiles."""
-        print("Counts:", counts)
         for number, count in enumerate(counts, start=1):
             self.tiles[number-1].update_count(count)
 
@@ -259,7 +258,6 @@ class SudokuBoard:
                         )
                         tile.grid(row=cell_row, column=cell_col)
                         self.tiles[row][col] = tile
-        print("Tiles created:", len(self.tiles), "x", len(self.tiles[0]), ".Tiles:", self.tiles)
     
     def update_board(self, board: List[List[int]], selected_cell: Optional[Tuple[int, int]] = None):
         """Update the UI to reflect the current game state."""
