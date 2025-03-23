@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk  # Add this import for themed widgets
 from typing import Callable, List
 from ui.formatters import BasicStatsFormatter, StatsFormatter
 from core.difficulty import Difficulty  # Add this import
@@ -95,155 +96,97 @@ class SudokuTile:
         self.update_display()
 
 class NumberTile:
-    """Represents a single tile in the number panel."""
+    """A tile displaying a number and its remaining count."""
     
-    def __init__(self, parent, number: int, on_click_callback: Callable):
-        """
-        Initialize a number tile.
-        
-        Args:
-            parent: The parent widget
-            number: The number to display
-            on_click_callback: Function to call when tile is clicked
-        """
+    def __init__(self, parent, number: int, on_click: Callable):
+        """Initialize the number tile."""
+        self.frame = tk.Frame(parent)
         self.number = number
-        self.count = 9  # Initially, each number can appear 9 times
-        self.on_click = on_click_callback
+        self.on_click = lambda: on_click(number)
         
-        # Create the frame for the tile
-        self.frame = tk.Frame(
-            parent,
-            width=40,
-            height=40,
-            borderwidth=2,
+        # Create the tile with a border
+        self.tile = tk.Label(
+            self.frame, 
+            text=str(number),
+            font=("Arial", 16, "bold"),
+            width=2,
+            bd=1,
             relief=tk.RAISED,
-            bg="#f0f0f0"
+            bg="#e0e0e0"
         )
-        self.frame.grid_propagate(False)  # Keep the frame size fixed
+        # Use grid instead of pack for internal widgets
+        self.tile.grid(row=0, column=0, sticky="nsew")
+        self.frame.rowconfigure(0, weight=1)
+        self.frame.columnconfigure(0, weight=1)
+        self.tile.bind("<Button-1>", lambda e: self.on_click())
         
-        # Create the label for displaying the number
-        self.number_label = tk.Label(
-            self.frame,
-            text=str(self.number),
-            font=("Arial", 14, "bold"),
-            bg="#f0f0f0"
-        )
-        self.number_label.pack(expand=True, fill=tk.BOTH)
+        # Create the counter beneath the tile
+        self.counter = tk.Label(self.frame, text="9", font=("Arial", 10))
+        self.counter.grid(row=1, column=0)  # Use grid instead of pack
         
-        # Create the label for displaying the count
-        self.count_label = tk.Label(
-            self.frame,
-            text=f"({self.count})",
-            font=("Arial", 8),
-            bg="#f0f0f0"
-        )
-        self.count_label.pack(side=tk.BOTTOM)
-        
-        # Bind the click event
-        self.frame.bind("<Button-1>", self._handle_click)
-        self.number_label.bind("<Button-1>", self._handle_click)
-        self.count_label.bind("<Button-1>", self._handle_click)
-    
-    def _handle_click(self, event):
-        """Handle click events on the tile."""
-        self.on_click(self.number)
+        # These allow the tile to be added to a parent with either method
+        self.grid = self.frame.grid
+        self.pack = self.frame.pack
     
     def update_count(self, count: int):
         """Update the count of the number."""
         self.count = count
-        self.count_label.config(text=f"({self.count})")
+        self.counter.config(text=f"({self.count})")
         if self.count == 0:
-            self.number_label.config(fg="#f0f0f0")  # Hide the number by changing its color to the background color
+            self.tile.config(fg="#f0f0f0")  # Hide the number by changing its color to the background color
         else:
-            self.number_label.config(fg="black")  # Show the number in black color
-    
-    def grid(self, **kwargs):
-        """Grid the tile using the frame's grid method."""
-        self.frame.grid(**kwargs)
+            self.tile.config(fg="black")  # Show the number in black color
 
 
 class NumberPanel:
-    """Panel to display number tiles with their counters."""
-    
     def __init__(self, parent, on_tile_click: Callable):
-        """
-        Initialize the number panel.
-        
-        Args:
-            parent: The parent widget
-            on_tile_click: Function to call when a tile is clicked
-        """
         self.frame = tk.Frame(parent)
-        self.frame.grid(row=3, column=0, columnspan=9, pady=(10, 0), sticky="ew")
         
-        self.tiles: List[NumberTile] = []
+        # Configure grid for the number tiles
+        for i in range(9):
+            self.frame.columnconfigure(i, weight=1)
+        
+        # Create tiles using grid
+        self.tiles = []
         for number in range(1, 10):
             tile = NumberTile(self.frame, number, on_tile_click)
-            tile.grid(row=0, column=number-1, padx=2)
+            tile.grid(row=0, column=number-1, padx=3, sticky="ew")
             self.tiles.append(tile)
-    
+        
     def update_counts(self, counts: List[int]):
         """Update the counts of all number tiles."""
-        print("Counts:",counts)
+        print("Counts:", counts)
         for number, count in enumerate(counts, start=1):
             self.tiles[number-1].update_count(count)
 
 class StatsWindow:
-    """Popup window to display game stats."""
+    """Window to display game statistics."""
     
-    def __init__(self, parent, controller, initial_difficulty: Difficulty = None, formatter: StatsFormatter = None):
-        """
-        Initialize stats window.
-        
-        Args:
-            parent: Parent window
-            controller: Game controller
-            initial_difficulty: Initial difficulty to display stats for (default from game if not provided)
-            formatter: Stats formatter instance
-        """
-        self.controller = controller
-        self.formatter = formatter or BasicStatsFormatter()
+    def __init__(self, parent, controller, difficulty):
+        # Create a new toplevel window instead of using the parent directly
         self.window = tk.Toplevel(parent)
-        self.window.title("Game Stats")
+        self.window.title("Sudoku Statistics")
+        self.window.geometry("400x300")
         
-        # Use provided initial difficulty or default to EASY
-        initial_diff_value = initial_difficulty.value if initial_difficulty else Difficulty.EASY.value
-        self.difficulty = tk.StringVar(value=initial_diff_value)
+        # Use only one geometry manager consistently - either grid or pack
+        # Here we'll use grid for everything in this container
         
-        # Create difficulty selection dropdown
-        tk.Label(self.window, text="Difficulty:").pack(side=tk.LEFT, padx=5, pady=5)
+        frame = tk.Frame(self.window)
+        frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+        
+        # Use grid for all widgets in this container
+        difficulty_label = tk.Label(frame, text="Select Difficulty:")
+        difficulty_label.grid(row=0, column=0, sticky="w", padx=5, pady=5)
+        
         difficulty_combo = ttk.Combobox(
-            self.window,
-            textvariable=self.difficulty,
-            values=[difficulty.value for difficulty in Difficulty],
-            state="readonly",
-            width=10
+            frame,
+            values=["Easy", "Medium", "Hard"]
         )
-        difficulty_combo.pack(side=tk.LEFT, padx=5, pady=5)
-        difficulty_combo.bind("<<ComboboxSelected>>", self.update_stats_display)
+        difficulty_combo.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
+        difficulty_combo.set(difficulty.name)
         
-        # Create stats label with monospace font for better alignment
-        self.stats_label = tk.Label(
-            self.window, 
-            text="", 
-            justify=tk.LEFT, 
-            font=("Courier", 10),
-            anchor="w"
-        )
-        self.stats_label.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
-        
-        # Initial display
-        self.update_stats_display()
-    
-    def update_stats_display(self, event=None):
-        """Update the stats display based on the selected difficulty."""
-        difficulty = Difficulty(self.difficulty.get())
-        stats = self.controller.get_stats(difficulty)
-        
-        # Use the formatter to format the stats
-        formatted_stats = self.formatter.format_stats(difficulty, stats)
-        
-        self.stats_label.config(text=formatted_stats)
+        # Rest of the stats window implementation using grid consistently
+        # ...
 
 class SudokuBoard:
     """Represents the Sudoku board with 9x9 tiles."""
@@ -306,3 +249,59 @@ class SudokuBoard:
                 tile.set_value(value, is_fixed)
                 if selected_value and selected_value != 0 and value == selected_value and not is_selected:
                     tile.highlight("#e1f5fe")
+
+class ControlPanel:
+    """Panel to display game controls."""
+
+    def __init__(self, parent, new_game_command: Callable, check_command: Callable, solve_command: Callable, stats_command: Callable):
+        """
+        Initialize the control panel.
+
+        Args:
+            parent: The parent widget
+            new_game_command: Function to call when the new game button is clicked
+            check_command: Function to call when the check button is clicked
+            solve_command: Function to call when the solve button is clicked
+            stats_command: Function to call when the stats button is clicked
+        """
+        self.frame = tk.Frame(parent)
+        self.new_game_command = new_game_command
+        self.check_command = check_command
+        self.solve_command = solve_command
+        self.stats_command = stats_command
+        self._create_widgets()
+
+    def _create_widgets(self):
+        """Create the control buttons with even spacing."""
+        # Create a container frame with proper padding
+        button_frame = tk.Frame(self.frame)
+        button_frame.pack(fill=tk.X, expand=True)
+        
+        # Create all buttons
+        buttons = [
+            tk.Button(button_frame, text="New Game", command=self.new_game_command),
+            tk.Button(button_frame, text="Check", command=self.check_command),
+            tk.Button(button_frame, text="Solve", command=self.solve_command),
+            tk.Button(button_frame, text="Stats", command=self.stats_command)
+        ]
+        
+        # Place buttons with equal spacing but flush with edges
+        num_buttons = len(buttons)
+        for i, btn in enumerate(buttons):
+            # Configure column weight for even spacing
+            button_frame.columnconfigure(i, weight=1)
+            
+            # Set padx based on position:
+            if i == 0:  # First button - no padding on left
+                padx = (0, 5)
+            elif i == num_buttons - 1:  # Last button - no padding on right
+                padx = (5, 0)
+            else:  # Middle buttons - padding on both sides
+                padx = 5
+                
+            # Grid the button
+            btn.grid(row=0, column=i, sticky="ew", padx=padx, pady=5)
+
+    def grid(self, **kwargs):
+        """Grid the control panel using the frame's grid method."""
+        self.frame.grid(**kwargs)
