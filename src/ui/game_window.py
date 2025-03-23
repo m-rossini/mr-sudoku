@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from core.difficulty import Difficulty
 from core.stats import GameStats
-from ui.ui_components import NumberPanel, StatsWindow, SudokuBoard 
+from ui.ui_components import NumberPanel, StatsWindow, SudokuBoard, ControlPanel # Add ControlPanel import
 
 INITIAL_STATUS = "Ready!"
 class SudokuGameWindow:
@@ -70,7 +70,7 @@ class SudokuGameWindow:
         main_frame = tk.Frame(self.root, padx=self.margin, pady=self.margin)
         main_frame.pack()
         return main_frame
-
+ 
     def _create_status_frame(self, main_frame):
         """Create the status frame with status label."""
         status_frame = tk.Frame(main_frame, relief=tk.SUNKEN, borderwidth=1)
@@ -119,28 +119,20 @@ class SudokuGameWindow:
     
     def _create_controls_frame(self, main_frame):
         """Create the game controls frame with buttons."""
-        # Create controls frame
-        controls_frame = tk.Frame(main_frame)
-        controls_frame.grid(row=5, column=0, columnspan=3, pady=10, sticky="ew")
-        
-        # Add control buttons
-        new_game_btn = tk.Button(controls_frame, text="New Game", command=self._new_game)
-        new_game_btn.pack(side=tk.LEFT, padx=5)
-        
-        check_btn = tk.Button(controls_frame, text="Check", command=self._check_solution)
-        check_btn.pack(side=tk.LEFT, padx=5)
-        
-        solve_btn = tk.Button(controls_frame, text="Solve", command=self._solve_game)
-        solve_btn.pack(side=tk.RIGHT, padx=5)
-        
-        stats_btn = tk.Button(controls_frame, text="Stats", command=self._show_stats)
-        stats_btn.pack(side=tk.RIGHT, padx=5)
+        self.control_panel = ControlPanel(
+            main_frame,
+            new_game_command=self._new_game,
+            check_command=self._check_solution,
+            solve_command=self._solve_game,
+            stats_command=self._show_stats
+        )
+        self.control_panel.grid(row=5, column=0, columnspan=3, pady=10, padx=0, sticky="ew")
     
     def _show_stats(self):
         """Show a popup window with the game stats."""
         # Get current difficulty from the StringVar
         current_difficulty = Difficulty(self.difficulty.get())
-        StatsWindow(self.root, self.controller, current_difficulty)
+        StatsWindow(self.root, self.controller.get_stats(current_difficulty), current_difficulty)
     
     def update_status(self, status: str):
         """Update the game status label."""
