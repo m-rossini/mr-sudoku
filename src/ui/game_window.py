@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from core.difficulty import Difficulty
 from core.stats import GameStats
-from ui.ui_components import NumberPanel, StatsWindow, SudokuBoard, ControlPanel, StatusFrame # Add ControlPanel import
+from ui.ui_components import NumberPanel, StatsWindow, SudokuBoard, ControlPanel, StatusFrame, OptionsFrame # Add OptionsFrame import
 
 class SudokuGameWindow:
     """Tkinter UI for the Sudoku game using individual tile objects."""
@@ -81,23 +81,8 @@ class SudokuGameWindow:
     
     def _create_options_frame(self, main_frame):
         """Create the options frame."""
-        # Create frame with border
-        options_frame = tk.Frame(main_frame, relief=tk.GROOVE, borderwidth=1)
-        options_frame.grid(row=4, column=0, columnspan=3, pady=(10, 0), sticky="ew")
-        
-        # Add difficulty label and dropdown
-        tk.Label(options_frame, text="Difficulty:").pack(side=tk.LEFT, padx=5, pady=5)
-        
-        # Create the difficulty combobox
-        difficulty_combo = ttk.Combobox(
-            options_frame,
-            textvariable=self.difficulty,
-            values=[difficulty.value for difficulty in Difficulty],
-            state="readonly",
-            width=10
-        )
-        difficulty_combo.pack(side=tk.LEFT, padx=5, pady=5)
-        difficulty_combo.bind("<<ComboboxSelected>>", self._on_difficulty_change)
+        self.options_frame = OptionsFrame(main_frame, self._on_difficulty_change, self.difficulty)
+        self.options_frame.frame.grid(row=4, column=0, columnspan=3, pady=(10, 0), sticky="ew")
     
     def _create_controls_frame(self, main_frame):
         """Create the game controls frame with buttons."""
@@ -117,7 +102,6 @@ class SudokuGameWindow:
 
     def _show_stats(self):
         """Show a popup window with the game stats."""
-        # Get current difficulty from the StringVar
         current_difficulty = Difficulty(self.difficulty.get())
         StatsWindow(self.root, self.controller, current_difficulty)
     
@@ -133,10 +117,7 @@ class SudokuGameWindow:
     
     def _on_cell_click(self, row: int, col: int):
         """Handle cell click events."""
-        # Update selection state
         self.selected_cell = (row, col)
-        
-        # Update the visual state of all tiles
         self._update_tile_appearances()
 
     def _update_tile_appearances(self):
@@ -160,10 +141,8 @@ class SudokuGameWindow:
             is_valid = self.controller.is_valid_move(row, col, value)
             
             if is_valid:
-                print('>>>valid move')
                 self._handle_valid_move(row, col, value)
             else:
-                print('>>>invalid move')
                 self._handle_invalid_move(row, col, value)
         
         # Delete/backspace to clear a cell

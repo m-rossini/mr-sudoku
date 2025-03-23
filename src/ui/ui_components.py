@@ -361,3 +361,27 @@ class StatusFrame:
     def update_status(self, status: str):
         """Update the status label with the given text."""
         self.status_label.config(text=status)
+
+class OptionsFrame:
+    """Frame to hold difficulty selection options."""
+
+    def __init__(self, parent, on_difficulty_change, difficulty):
+        """Initialize the options frame."""
+        self.frame = tk.Frame(parent, relief=tk.GROOVE, borderwidth=1)
+        self.on_difficulty_change = on_difficulty_change
+        self.difficulty = difficulty
+        self._create_widgets()
+
+    def _create_widgets(self):
+        """Create the widgets for the options frame."""
+        tk.Label(self.frame, text="Difficulty:").pack(side=tk.LEFT, padx=5, pady=5)
+
+        difficulty_combo = ttk.Combobox(
+            self.frame,
+            textvariable=self.difficulty,
+            values=[difficulty.value for difficulty in Difficulty],
+            state="readonly",
+            width=10
+        )
+        difficulty_combo.pack(side=tk.LEFT, padx=5, pady=5)
+        difficulty_combo.bind("<<ComboboxSelected>>", self.on_difficulty_change)
