@@ -19,7 +19,7 @@ class SudokuGameWindow:
         
         # UI state
         self.selected_cell = None
-        self.tiles = [[None for _ in range(9)] for _ in range(9)]
+        # self.tiles = [[None for _ in range(9)] for _ in range(9)]
         
         # Register the window close event handler
         self.root.protocol("WM_DELETE_WINDOW", self._on_window_close)
@@ -194,7 +194,7 @@ class SudokuGameWindow:
     
     def _handle_invalid_move(self, row: int, col: int, value: int):
         """Handle an invalid move."""
-        self.tiles[row][col].flash_invalid()
+        self.board.tiles[row][col].flash_invalid()
         is_game_over, wrong_moves, max_wrong_moves = self.controller.wrong_move_done()
         print(f'Invalid move: {value} at ({row},{col}), wrong_moves: {wrong_moves}/{max_wrong_moves}')
         self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.WRONG_MOVES, 1)
@@ -214,14 +214,14 @@ class SudokuGameWindow:
         """Disable all tiles in the grid."""
         for row in range(self.grid_size):
             for col in range(self.grid_size):
-                self.tiles[row][col].label.unbind("<Button-1>")
+                self.board.tiles[row][col].label.unbind("<Button-1>")
         self.root.unbind("<Key>")
     
     def enable_grid(self):
         """Enable all tiles in the grid."""
         for row in range(self.grid_size):
             for col in range(self.grid_size):
-                self.tiles[row][col].label.bind("<Button-1>", self.tiles[row][col]._handle_click)
+                self.board.tiles[row][col].label.bind("<Button-1>", self.board.tiles[row][col]._handle_click)
         self.root.bind("<Key>", self._on_key_press)
     
     def _new_game(self):

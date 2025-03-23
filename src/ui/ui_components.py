@@ -231,6 +231,7 @@ class SudokuBoard:
                         )
                         tile.grid(row=cell_row, column=cell_col)
                         self.tiles[row][col] = tile
+        print("Tiles created:", len(self.tiles), "x", len(self.tiles[0]), ".Tiles:", self.tiles)
     
     def update_board(self, board: List[List[int]], selected_cell: Optional[Tuple[int, int]] = None):
         """Update the UI to reflect the current game state."""
