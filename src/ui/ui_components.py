@@ -160,34 +160,62 @@ class NumberPanel:
             self.tiles[number-1].update_count(count)
 
 class StatsWindow:
-    """Window to display game statistics."""
+    """Popup window to display game stats."""
     
-    def __init__(self, parent, controller, difficulty):
-        # Create a new toplevel window instead of using the parent directly
+    def __init__(self, parent, controller, initial_difficulty: Difficulty = None, formatter: StatsFormatter = None):
+        """
+        Initialize stats window.
+        
+        Args:
+            parent: Parent window
+            controller: Game controller
+            initial_difficulty: Initial difficulty to display stats for (default from game if not provided)
+            formatter: Stats formatter instance
+        """
+        self.controller = controller
+        self.formatter = formatter or BasicStatsFormatter()
         self.window = tk.Toplevel(parent)
-        self.window.title("Sudoku Statistics")
-        self.window.geometry("400x300")
+        self.window.title("Game Stats")
         
-        # Use only one geometry manager consistently - either grid or pack
-        # Here we'll use grid for everything in this container
+        # Use provided initial difficulty or default to EASY
+        initial_diff_value = initial_difficulty.value if initial_difficulty else Difficulty.EASY.value
+        self.difficulty = tk.StringVar(value=initial_diff_value)
         
-        frame = tk.Frame(self.window)
-        frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
-        
-        # Use grid for all widgets in this container
-        difficulty_label = tk.Label(frame, text="Select Difficulty:")
-        difficulty_label.grid(row=0, column=0, sticky="w", padx=5, pady=5)
-        
+        # Create difficulty selection dropdown
+        tk.Label(self.window, text="Difficulty:").pack(side=tk.LEFT, padx=5, pady=5)
         difficulty_combo = ttk.Combobox(
-            frame,
-            values=["Easy", "Medium", "Hard"]
+            self.window,
+            textvariable=self.difficulty,
+            values=[difficulty.value for difficulty in Difficulty],
+            state="readonly",
+            width=10
         )
-        difficulty_combo.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
-        difficulty_combo.set(difficulty.name)
+        difficulty_combo.pack(side=tk.LEFT, padx=5, pady=5)
+        difficulty_combo.bind("<<ComboboxSelected>>", self.update_stats_display)
         
-        # Rest of the stats window implementation using grid consistently
-        # ...
-
+        # Create stats label with monospace font for better alignment
+        self.stats_label = tk.Label(
+            self.window, 
+            text="", 
+            justify=tk.LEFT, 
+            font=("Courier", 10),
+            anchor="w"
+        )
+        self.stats_label.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+        
+        # Initial display
+        self.update_stats_display()
+    
+    def update_stats_display(self, event=None):
+        """Update the stats display based on the selected difficulty."""
+        difficulty = Difficulty(self.difficulty.get())
+        stats = self.controller.get_stats(difficulty)
+        
+        # Use the formatter to format the stats
+        formatted_stats = self.formatter.format_stats(difficulty, stats)
+        
+        self.stats_label.config(text=formatted_stats)
+        
 class SudokuBoard:
     """Represents the Sudoku board with 9x9 tiles."""
     

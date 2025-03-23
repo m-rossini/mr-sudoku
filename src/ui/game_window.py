@@ -19,7 +19,6 @@ class SudokuGameWindow:
         
         # UI state
         self.selected_cell = None
-        # self.tiles = [[None for _ in range(9)] for _ in range(9)]
         
         # Register the window close event handler
         self.root.protocol("WM_DELETE_WINDOW", self._on_window_close)
@@ -132,7 +131,7 @@ class SudokuGameWindow:
         """Show a popup window with the game stats."""
         # Get current difficulty from the StringVar
         current_difficulty = Difficulty(self.difficulty.get())
-        StatsWindow(self.root, self.controller.get_stats(current_difficulty), current_difficulty)
+        StatsWindow(self.root, self.controller, current_difficulty)
     
     def update_status(self, status: str):
         """Update the game status label."""
