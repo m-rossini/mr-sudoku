@@ -334,3 +334,30 @@ class ControlPanel:
     def grid(self, **kwargs):
         """Grid the control panel using the frame's grid method."""
         self.frame.grid(**kwargs)
+
+class StatusFrame:
+    """Frame to hold the status label."""
+
+    def __init__(self, parent):
+        """Initialize the status frame."""
+        self.frame = tk.Frame(parent, relief=tk.SUNKEN, borderwidth=1)
+        self._create_widgets()
+
+    def _create_widgets(self):
+        """Create the widgets for the status frame."""
+        self.status_label = tk.Label(
+            self.frame,
+            text="Ready!",
+            anchor="w",
+            padx=5,
+            pady=3
+        )
+        self.status_label.pack(fill=tk.X)
+
+    def game_over(self):
+        """Update the status label to indicate game over."""
+        self.status_label.config(text="Game Over!")
+        
+    def update_status(self, status: str):
+        """Update the status label with the given text."""
+        self.status_label.config(text=status)

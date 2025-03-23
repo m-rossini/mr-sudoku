@@ -2,9 +2,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from core.difficulty import Difficulty
 from core.stats import GameStats
-from ui.ui_components import NumberPanel, StatsWindow, SudokuBoard, ControlPanel # Add ControlPanel import
+from ui.ui_components import NumberPanel, StatsWindow, SudokuBoard, ControlPanel, StatusFrame # Add ControlPanel import
 
-INITIAL_STATUS = "Ready!"
 class SudokuGameWindow:
     """Tkinter UI for the Sudoku game using individual tile objects."""
     
@@ -69,22 +68,6 @@ class SudokuGameWindow:
         main_frame = tk.Frame(self.root, padx=self.margin, pady=self.margin)
         main_frame.pack()
         return main_frame
- 
-    def _create_status_frame(self, main_frame):
-        """Create the status frame with status label."""
-        status_frame = tk.Frame(main_frame, relief=tk.SUNKEN, borderwidth=1)
-        status_frame.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(10, 0))
-        
-        self.status_label = tk.Label(
-            status_frame, 
-            text=INITIAL_STATUS, 
-            anchor="w", 
-            padx=5, 
-            pady=3
-        )
-        self.status_label.pack(fill=tk.X)
-        
-        return status_frame
     
     def _create_board(self, main_frame):
         """Create the Sudoku board."""
@@ -127,15 +110,16 @@ class SudokuGameWindow:
         )
         self.control_panel.grid(row=5, column=0, columnspan=3, pady=10, padx=0, sticky="ew")
     
+    def _create_status_frame(self, main_frame):
+        """Create the status frame with status label."""
+        self.status_frame = StatusFrame(main_frame)
+        self.status_frame.frame.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+
     def _show_stats(self):
         """Show a popup window with the game stats."""
         # Get current difficulty from the StringVar
         current_difficulty = Difficulty(self.difficulty.get())
         StatsWindow(self.root, self.controller, current_difficulty)
-    
-    def update_status(self, status: str):
-        """Update the game status label."""
-        self.status_label.config(text=f"{status}")
     
     def update_board(self):
         """Update the UI to reflect the current game state."""
@@ -176,8 +160,10 @@ class SudokuGameWindow:
             is_valid = self.controller.is_valid_move(row, col, value)
             
             if is_valid:
+                print('>>>valid move')
                 self._handle_valid_move(row, col, value)
             else:
+                print('>>>invalid move')
                 self._handle_invalid_move(row, col, value)
         
         # Delete/backspace to clear a cell
@@ -197,14 +183,14 @@ class SudokuGameWindow:
         is_game_over, wrong_moves, max_wrong_moves = self.controller.wrong_move_done()
         print(f'Invalid move: {value} at ({row},{col}), wrong_moves: {wrong_moves}/{max_wrong_moves}')
         self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.WRONG_MOVES, 1)
-        self.update_status(f"Invalid: {value} at ({row+1},{col+1}) - Wrong Moves: {wrong_moves}/{max_wrong_moves}")
+        self.status_frame.update_status(f"Invalid: {value} at ({row+1},{col+1}) - Wrong Moves: {wrong_moves}/{max_wrong_moves}")
         self.update_number_panel()
         if is_game_over:
             self.__game_over()
     
     def __game_over(self):
         """Handle game over state."""
-        self.update_status("Game Over")
+        self.status_frame.game_over()
         self.disable_grid()
         self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.GAMES_LOST, 1)
         self.controller.save_stats()
@@ -228,7 +214,7 @@ class SudokuGameWindow:
         difficulty = Difficulty(self.difficulty.get())
         self.controller.start_new_game(difficulty)
         self.enable_grid()
-        self.update_status(INITIAL_STATUS)
+        self.status_frame.start_game()
         self.controller.update_stat(difficulty, GameStats.GAMES_PLAYED, 1)
         self.update_number_panel()
     
