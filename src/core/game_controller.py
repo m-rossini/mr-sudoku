@@ -20,6 +20,7 @@ class GameController:
         self.wrong_moves = 0
         self.stats = GameStats()
         self.start_new_game(Difficulty.MEDIUM)
+        self.note_mode = False
     
     def start_new_game(self, difficulty: Difficulty):
         """Start a new game with the given difficulty."""
@@ -31,9 +32,20 @@ class GameController:
     
     def set_cell_value(self, row: int, col: int, value: int):
         """Set the value of a cell in the game."""
-        self.game.set_cell(row, col, value)
+        print(">>>  GameController.set_cell_value", row, col, value, self.note_mode)
+        if self.note_mode:
+            self.game.toggle_note(row, col, value)
+        else:
+            self.game.set_cell(row, col, value)
+
+        print(">>>", self.game.notes[row][col])
         self.window.update_board()
     
+    def clear_notes(self, row: int, col: int):
+        """Clear the notes for a cell."""
+        self.game.notes[row][col].clear()
+        self.window.update_board()
+
     def check_solution(self):
         """Check if the current board state is valid."""
         if self.game.is_board_valid():
@@ -101,3 +113,8 @@ class GameController:
     def save_stats(self):
         """Save the game statistics to a file."""
         self.stats.save_stats()
+
+    def set_note_mode(self, note_mode: bool):
+        """Set the note mode."""
+        self.note_mode = note_mode
+        print(f"Note mode is now: {self.note_mode}")

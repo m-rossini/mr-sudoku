@@ -81,7 +81,7 @@ class SudokuGameWindow:
     
     def _create_options_frame(self, main_frame):
         """Create the options frame."""
-        self.options_frame = OptionsFrame(main_frame, self._on_difficulty_change, self.difficulty)
+        self.options_frame = OptionsFrame(main_frame, self._on_difficulty_change, self.difficulty, self._on_note_toggle)
         self.options_frame.frame.grid(row=4, column=0, columnspan=3, pady=(10, 0), sticky="ew")
     
     def _create_controls_frame(self, main_frame):
@@ -135,11 +135,11 @@ class SudokuGameWindow:
         if self.controller.is_fixed_cell(row, col):
             return
         
-        # Number keys (1-9)
         if event.char.isdigit() and 1 <= int(event.char) <= 9:
+            print(f'Char: {event.char} in note mode: {self.controller.note_mode}')
             value = int(event.char)
             is_valid = self.controller.is_valid_move(row, col, value)
-            
+                
             if is_valid:
                 self._handle_valid_move(row, col, value)
             else:
@@ -148,6 +148,7 @@ class SudokuGameWindow:
         # Delete/backspace to clear a cell
         elif event.keysym in ('Delete', 'BackSpace'):
             self.controller.set_cell_value(row, col, 0)
+            self.controller.clear_notes(row, col)
             self.update_board()
 
     def _handle_valid_move(self, row: int, col: int, value: int):
@@ -158,6 +159,10 @@ class SudokuGameWindow:
     
     def _handle_invalid_move(self, row: int, col: int, value: int):
         """Handle an invalid move."""
+        if self.controller.note_mode:
+            self.board.tiles[row][col].flash_warning()
+            return
+               
         self.board.tiles[row][col].flash_invalid()
         is_game_over, wrong_moves, max_wrong_moves = self.controller.wrong_move_done()
         print(f'Invalid move: {value} at ({row},{col}), wrong_moves: {wrong_moves}/{max_wrong_moves}')
@@ -236,3 +241,7 @@ class SudokuGameWindow:
                 if value != 0:
                     counts[value-1] -= 1
         self.number_panel.update_counts(counts)
+    
+    def _on_note_toggle(self, note_mode: bool):
+        """Handle note mode toggle events."""
+        self.controller.set_note_mode(note_mode)

@@ -15,6 +15,7 @@ class SudokuGame:
         """Generate a new Sudoku puzzle based on the difficulty."""
         self.board = self.generators[difficulty].generate(difficulty.name)
         self.original_board = [row[:] for row in self.board]
+        self.notes = [[set() for _ in range(9)] for _ in range(9)]
     
     def get_board(self) -> List[List[int]]:
         """Return the current board state."""
@@ -28,7 +29,18 @@ class SudokuGame:
         """Set a cell value if it's not fixed."""
         if not self.is_fixed_cell(row, col):
             self.board[row][col] = value
+            self.notes[row][col].clear()
     
+    def toggle_note(self, row: int, col: int, value: int):
+        """Toggle a note on a cell."""
+        if self.is_fixed_cell(row, col):
+            return
+        
+        if value in self.notes[row][col]:
+            self.notes[row][col].remove(value)
+        else:
+            self.notes[row][col].add(value)
+
     def is_board_valid(self) -> bool:
         """Check if the current board state is valid."""
         for row in range(9):

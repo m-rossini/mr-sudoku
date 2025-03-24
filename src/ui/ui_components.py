@@ -81,12 +81,20 @@ class SudokuTile:
         """Grid the tile using the frame's grid method."""
         self.frame.grid(**kwargs)
     
+    def flash(self, color: str, duration: int = 500):
+        """Flash the tile with the given color for a specified duration."""
+        original_bg = self.label.cget("bg")
+        self.label.config(bg=color)
+        self.label.after(duration, lambda: self.label.config(bg=original_bg))
+
     def flash_invalid(self):
         """Flash the tile to indicate an invalid move."""
-        original_bg = self.label.cget("bg")
-        self.label.config(bg="red")
-        self.label.after(500, lambda: self.label.config(bg=original_bg))
-    
+        self.flash("red")
+
+    def flash_warning(self):
+        """Flash the tile to indicate a warning."""
+        self.flash("orange")
+
     def highlight(self, bg_hex_color="#d4edda"):
         """Highlight the tile with light green background."""
         self.label.config(bg=bg_hex_color)  # Light green for highlighting
@@ -363,17 +371,23 @@ class StatusFrame:
 class OptionsFrame:
     """Frame to hold difficulty selection options."""
 
-    def __init__(self, parent, on_difficulty_change, difficulty):
+    def __init__(self, parent, on_difficulty_change, difficulty, on_note_toggle):
         """Initialize the options frame."""
         self.frame = tk.Frame(parent, relief=tk.GROOVE, borderwidth=1)
         self.on_difficulty_change = on_difficulty_change
         self.difficulty = difficulty
+        self.note_mode = tk.BooleanVar()  # Add note_mode attribute
+        self.on_note_toggle = on_note_toggle
         self._create_widgets()
 
     def _create_widgets(self):
         """Create the widgets for the options frame."""
-        tk.Label(self.frame, text="Difficulty:").pack(side=tk.LEFT, padx=5, pady=5)
+        self._create_difficulty_combobox()
+        self._create_note_checkbutton()
 
+    def _create_difficulty_combobox(self):
+        """Create the difficulty combobox."""
+        tk.Label(self.frame, text="Difficulty:").pack(side=tk.LEFT, padx=5, pady=5)
         difficulty_combo = ttk.Combobox(
             self.frame,
             textvariable=self.difficulty,
@@ -383,3 +397,17 @@ class OptionsFrame:
         )
         difficulty_combo.pack(side=tk.LEFT, padx=5, pady=5)
         difficulty_combo.bind("<<ComboboxSelected>>", self.on_difficulty_change)
+
+    def _create_note_checkbutton(self):
+        """Create the note checkbutton."""
+        note_check = tk.Checkbutton(
+            self.frame,
+            text="Note Mode",
+            variable=self.note_mode,
+            command=self._toggle_note_mode
+        )
+        note_check.pack(side=tk.LEFT, padx=5, pady=5)
+
+    def _toggle_note_mode(self):
+        """Toggle note mode and call the callback."""
+        self.on_note_toggle(self.note_mode.get())
