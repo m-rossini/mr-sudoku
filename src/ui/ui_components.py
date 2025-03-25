@@ -75,8 +75,8 @@ class SudokuTile:
         elif self.is_fixed:
             self.label.config(bg="#f0f0f0", fg="black")  # Gray for fixed tiles
         else:
-            self.label.config(bg="white", fg="blue")  # Blue text for user entries
-    
+            self.label.config(bg="white")  
+
     def grid(self, **kwargs):
         """Grid the tile using the frame's grid method."""
         self.frame.grid(**kwargs)
