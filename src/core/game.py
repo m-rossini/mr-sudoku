@@ -10,6 +10,7 @@ class SudokuGame:
         self.generators = generators
         self.board = [[0 for _ in range(9)] for _ in range(9)]
         self.original_board = [[0 for _ in range(9)] for _ in range(9)]
+        self.notes = [[set() for _ in range(9)] for _ in range(9)]
     
     def new_game(self, difficulty: Difficulty):
         """Generate a new Sudoku puzzle based on the difficulty."""
@@ -20,6 +21,10 @@ class SudokuGame:
     def get_board(self) -> List[List[int]]:
         """Return the current board state."""
         return self.board
+    
+    def get_notes(self) -> List[List[set]]:
+        """Return the current notes state."""
+        return self.notes   
     
     def is_fixed_cell(self, row: int, col: int) -> bool:
         """Check if a cell is part of the original puzzle."""

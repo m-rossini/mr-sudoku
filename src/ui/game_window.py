@@ -112,7 +112,8 @@ class SudokuGameWindow:
             return 
         
         board = self.controller.get_board()
-        self.board.update_board(board, self.selected_cell)
+        notes: list[list[set[int]]] = self.controller.get_notes()
+        self.board.update_board(board, notes, self.selected_cell)
         self.update_number_panel()
     
     def _on_cell_click(self, row: int, col: int):
@@ -123,7 +124,8 @@ class SudokuGameWindow:
     def _update_tile_appearances(self):
         """Update the appearance of all tiles based on current game state."""
         board = self.controller.get_board()
-        self.board.update_board(board, self.selected_cell)
+        notes = self.controller.get_notes()
+        self.board.update_board(board, notes, self.selected_cell)
 
     def _on_key_press(self, event):
         """Handle keyboard input."""

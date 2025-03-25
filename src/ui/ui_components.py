@@ -25,6 +25,7 @@ class SudokuTile:
         self.is_fixed = False
         self.is_selected = False
         self.on_click = on_click_callback
+        self.notes = set()
         
         # Create the frame for the tile
         self.frame = tk.Frame(
@@ -66,7 +67,6 @@ class SudokuTile:
     
     def update_display(self):
         """Update the tile's appearance based on its state."""
-        # Update the displayed text
         self.label.config(text="" if self.value == 0 else str(self.value))
         
         # Set the appropriate colors based on state
@@ -75,7 +75,7 @@ class SudokuTile:
         elif self.is_fixed:
             self.label.config(bg="#f0f0f0", fg="black")  # Gray for fixed tiles
         else:
-            self.label.config(bg="white")  
+            self.label.config(bg="white", fg="blue")  
 
     def grid(self, **kwargs):
         """Grid the tile using the frame's grid method."""
@@ -267,7 +267,7 @@ class SudokuBoard:
                         tile.grid(row=cell_row, column=cell_col)
                         self.tiles[row][col] = tile
     
-    def update_board(self, board: List[List[int]], selected_cell: Optional[Tuple[int, int]] = None):
+    def update_board(self, board: List[List[int]], notes: list[list[set[int]]], selected_cell: Optional[Tuple[int, int]] = None):
         """Update the UI to reflect the current game state."""
         selected_value = None
         if selected_cell:
@@ -279,6 +279,7 @@ class SudokuBoard:
                 tile = self.tiles[row][col]
                 is_selected = selected_cell and (row, col) == selected_cell
                 tile.set_selected(is_selected)
+                tile.notes = notes[row][col]
                 value = board[row][col]
                 is_fixed = value != 0
                 tile.set_value(value, is_fixed)

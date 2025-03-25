@@ -65,6 +65,10 @@ class GameController:
         """Get the current board state."""
         return self.game.get_board()
     
+    def get_notes(self):
+        """Get the current notes state."""
+        return self.game.get_notes()
+    
     def is_fixed_cell(self, row: int, col: int) -> bool:
         """Check if a cell is part of the original puzzle."""
         return self.game.is_fixed_cell(row, col)
