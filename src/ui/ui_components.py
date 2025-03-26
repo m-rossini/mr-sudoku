@@ -58,12 +58,10 @@ class SudokuTile:
         """Set the tile's value and whether it's a fixed (original) tile."""
         self.value = value
         self.is_fixed = is_fixed
-        self.update_display()
     
     def set_selected(self, selected: bool):
         """Mark the tile as selected or not."""
         self.is_selected = selected
-        self.update_display()
     
     def update_display(self):
         """Update the tile's appearance based on its state."""
@@ -278,11 +276,12 @@ class SudokuBoard:
             for col in range(9):
                 tile = self.tiles[row][col]
                 is_selected = selected_cell and (row, col) == selected_cell
-                tile.set_selected(is_selected)
                 tile.notes = notes[row][col]
                 value = board[row][col]
                 is_fixed = value != 0
+                tile.set_selected(is_selected)
                 tile.set_value(value, is_fixed)
+                tile.update_display()
                 if selected_value and selected_value != 0 and value == selected_value and not is_selected:
                     tile.highlight("#e1f5fe")
 

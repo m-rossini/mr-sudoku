@@ -32,13 +32,11 @@ class GameController:
     
     def set_cell_value(self, row: int, col: int, value: int):
         """Set the value of a cell in the game."""
-        print(">>>  GameController.set_cell_value", row, col, value, self.note_mode)
         if self.note_mode:
             self.game.toggle_note(row, col, value)
         else:
             self.game.set_cell(row, col, value)
 
-        print(">>>", self.game.notes[row][col])
         self.window.update_board()
     
     def clear_notes(self, row: int, col: int):
