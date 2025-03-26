@@ -46,9 +46,13 @@ class SudokuTile:
             bg="white"
         )
         self.label.pack(expand=True, fill=tk.BOTH)
-        
-        # Bind the click event
         self.label.bind("<Button-1>", self._handle_click)
+        
+        # Create the note frame but don't pack it yet
+        self.note_frame = tk.Frame(self.frame)
+        
+        # Bind the click event to the frame as well
+        self.frame.bind("<Button-1>", self._handle_click)
     
     def _handle_click(self, event):
         """Handle click events on the tile."""
@@ -73,7 +77,38 @@ class SudokuTile:
         elif self.is_fixed:
             self.label.config(bg="#f0f0f0", fg="black")  # Gray for fixed tiles
         else:
-            self.label.config(bg="white", fg="blue")  
+            self.label.config(bg="white", fg="blue")
+
+        if self.value == 0 and self.notes:
+            self._draw_notes()
+            self.note_frame.lift()  # Show notes
+            self.label.lower()       # Hide label
+        else:
+            self.note_frame.lower() # Hide notes
+            self.label.lift()      # Show label
+    
+    def _draw_notes(self):
+        """Draw notes in a simple 3x3 grid with fixed sizes using place."""
+        # Destroy existing note labels
+        for widget in self.note_frame.winfo_children():
+            widget.destroy()
+        
+        # Get the background color for consistency
+        bg_color = "#c5e1e8" if self.is_selected else "white"
+        
+        # Create note labels and use place for positioning
+        for i in range(1, 10):
+            note_label = tk.Label(
+                self.note_frame,
+                text=str(i) if i in self.notes else "",
+                font=("Arial", 8),
+                width=2,
+                height=1,
+                bg=bg_color
+            )
+            note_label.place(relx=((i-1)%3)/3, rely=((i-1)//3)/3, relwidth=1/3, relheight=1/3)
+        
+        self.note_frame.place(relwidth=1, relheight=1)  # Place the note_frame
 
     def grid(self, **kwargs):
         """Grid the tile using the frame's grid method."""
