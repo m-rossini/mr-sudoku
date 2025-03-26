@@ -104,7 +104,6 @@ class GameStats:
             
             # Check compatibility and merge with defaults
             self._merge_stats(stats_data)
-            print("Stats loaded successfully.")
             return stats_data
         except Exception as e:
             print(f"Error loading stats: {e}")

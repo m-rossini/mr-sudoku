@@ -25,6 +25,7 @@ class SudokuTile:
         self.is_fixed = False
         self.is_selected = False
         self.on_click = on_click_callback
+        self.notes = set()
         
         # Create the frame for the tile
         self.frame = tk.Frame(
@@ -45,9 +46,13 @@ class SudokuTile:
             bg="white"
         )
         self.label.pack(expand=True, fill=tk.BOTH)
-        
-        # Bind the click event
         self.label.bind("<Button-1>", self._handle_click)
+        
+        # Create the note frame but don't pack it yet
+        self.note_frame = tk.Frame(self.frame)
+        
+        # Bind the click event to the frame as well
+        self.frame.bind("<Button-1>", self._handle_click)
     
     def _handle_click(self, event):
         """Handle click events on the tile."""
@@ -57,16 +62,13 @@ class SudokuTile:
         """Set the tile's value and whether it's a fixed (original) tile."""
         self.value = value
         self.is_fixed = is_fixed
-        self.update_display()
     
     def set_selected(self, selected: bool):
         """Mark the tile as selected or not."""
         self.is_selected = selected
-        self.update_display()
     
     def update_display(self):
         """Update the tile's appearance based on its state."""
-        # Update the displayed text
         self.label.config(text="" if self.value == 0 else str(self.value))
         
         # Set the appropriate colors based on state
@@ -75,18 +77,57 @@ class SudokuTile:
         elif self.is_fixed:
             self.label.config(bg="#f0f0f0", fg="black")  # Gray for fixed tiles
         else:
-            self.label.config(bg="white", fg="blue")  # Blue text for user entries
+            self.label.config(bg="white", fg="blue")
+
+        if self.value == 0 and self.notes:
+            self._draw_notes()
+            self.note_frame.lift()  # Show notes
+            self.label.lower()       # Hide label
+        else:
+            self.note_frame.lower() # Hide notes
+            self.label.lift()      # Show label
     
+    def _draw_notes(self):
+        """Draw notes in a simple 3x3 grid with fixed sizes using place."""
+        # Destroy existing note labels
+        for widget in self.note_frame.winfo_children():
+            widget.destroy()
+        
+        # Get the background color for consistency
+        bg_color = "#c5e1e8" if self.is_selected else "white"
+        
+        # Create note labels and use place for positioning
+        for i in range(1, 10):
+            note_label = tk.Label(
+                self.note_frame,
+                text=str(i) if i in self.notes else "",
+                font=("Arial", 8),
+                width=2,
+                height=1,
+                bg=bg_color
+            )
+            note_label.place(relx=((i-1)%3)/3, rely=((i-1)//3)/3, relwidth=1/3, relheight=1/3)
+        
+        self.note_frame.place(relwidth=1, relheight=1)  # Place the note_frame
+
     def grid(self, **kwargs):
         """Grid the tile using the frame's grid method."""
         self.frame.grid(**kwargs)
     
+    def flash(self, color: str, duration: int = 500):
+        """Flash the tile with the given color for a specified duration."""
+        original_bg = self.label.cget("bg")
+        self.label.config(bg=color)
+        self.label.after(duration, lambda: self.label.config(bg=original_bg))
+
     def flash_invalid(self):
         """Flash the tile to indicate an invalid move."""
-        original_bg = self.label.cget("bg")
-        self.label.config(bg="red")
-        self.label.after(500, lambda: self.label.config(bg=original_bg))
-    
+        self.flash("red")
+
+    def flash_warning(self):
+        """Flash the tile to indicate a warning."""
+        self.flash("orange")
+
     def highlight(self, bg_hex_color="#d4edda"):
         """Highlight the tile with light green background."""
         self.label.config(bg=bg_hex_color)  # Light green for highlighting
@@ -155,7 +196,6 @@ class NumberPanel:
         
     def update_counts(self, counts: List[int]):
         """Update the counts of all number tiles."""
-        print("Counts:", counts)
         for number, count in enumerate(counts, start=1):
             self.tiles[number-1].update_count(count)
 
@@ -259,9 +299,8 @@ class SudokuBoard:
                         )
                         tile.grid(row=cell_row, column=cell_col)
                         self.tiles[row][col] = tile
-        print("Tiles created:", len(self.tiles), "x", len(self.tiles[0]), ".Tiles:", self.tiles)
     
-    def update_board(self, board: List[List[int]], selected_cell: Optional[Tuple[int, int]] = None):
+    def update_board(self, board: List[List[int]], notes: list[list[set[int]]], selected_cell: Optional[Tuple[int, int]] = None):
         """Update the UI to reflect the current game state."""
         selected_value = None
         if selected_cell:
@@ -272,10 +311,12 @@ class SudokuBoard:
             for col in range(9):
                 tile = self.tiles[row][col]
                 is_selected = selected_cell and (row, col) == selected_cell
-                tile.set_selected(is_selected)
+                tile.notes = notes[row][col]
                 value = board[row][col]
                 is_fixed = value != 0
+                tile.set_selected(is_selected)
                 tile.set_value(value, is_fixed)
+                tile.update_display()
                 if selected_value and selected_value != 0 and value == selected_value and not is_selected:
                     tile.highlight("#e1f5fe")
 
@@ -334,3 +375,74 @@ class ControlPanel:
     def grid(self, **kwargs):
         """Grid the control panel using the frame's grid method."""
         self.frame.grid(**kwargs)
+
+class StatusFrame:
+    """Frame to hold the status label."""
+
+    def __init__(self, parent):
+        """Initialize the status frame."""
+        self.frame = tk.Frame(parent, relief=tk.SUNKEN, borderwidth=1)
+        self._create_widgets()
+
+    def _create_widgets(self):
+        """Create the widgets for the status frame."""
+        self.status_label = tk.Label(
+            self.frame,
+            text="Ready!",
+            anchor="w",
+            padx=5,
+            pady=3
+        )
+        self.status_label.pack(fill=tk.X)
+
+    def game_over(self):
+        """Update the status label to indicate game over."""
+        self.status_label.config(text="Game Over!")
+        
+    def update_status(self, status: str):
+        """Update the status label with the given text."""
+        self.status_label.config(text=status)
+
+class OptionsFrame:
+    """Frame to hold difficulty selection options."""
+
+    def __init__(self, parent, on_difficulty_change, difficulty, on_note_toggle):
+        """Initialize the options frame."""
+        self.frame = tk.Frame(parent, relief=tk.GROOVE, borderwidth=1)
+        self.on_difficulty_change = on_difficulty_change
+        self.difficulty = difficulty
+        self.note_mode = tk.BooleanVar()  # Add note_mode attribute
+        self.on_note_toggle = on_note_toggle
+        self._create_widgets()
+
+    def _create_widgets(self):
+        """Create the widgets for the options frame."""
+        self._create_difficulty_combobox()
+        self._create_note_checkbutton()
+
+    def _create_difficulty_combobox(self):
+        """Create the difficulty combobox."""
+        tk.Label(self.frame, text="Difficulty:").pack(side=tk.LEFT, padx=5, pady=5)
+        difficulty_combo = ttk.Combobox(
+            self.frame,
+            textvariable=self.difficulty,
+            values=[difficulty.value for difficulty in Difficulty],
+            state="readonly",
+            width=10
+        )
+        difficulty_combo.pack(side=tk.LEFT, padx=5, pady=5)
+        difficulty_combo.bind("<<ComboboxSelected>>", self.on_difficulty_change)
+
+    def _create_note_checkbutton(self):
+        """Create the note checkbutton."""
+        note_check = tk.Checkbutton(
+            self.frame,
+            text="Note Mode",
+            variable=self.note_mode,
+            command=self._toggle_note_mode
+        )
+        note_check.pack(side=tk.LEFT, padx=5, pady=5)
+
+    def _toggle_note_mode(self):
+        """Toggle note mode and call the callback."""
+        self.on_note_toggle(self.note_mode.get())

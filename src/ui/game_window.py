@@ -2,9 +2,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from core.difficulty import Difficulty
 from core.stats import GameStats
-from ui.ui_components import NumberPanel, StatsWindow, SudokuBoard, ControlPanel # Add ControlPanel import
+from ui.ui_components import NumberPanel, StatsWindow, SudokuBoard, ControlPanel, StatusFrame, OptionsFrame # Add OptionsFrame import
 
-INITIAL_STATUS = "Ready!"
 class SudokuGameWindow:
     """Tkinter UI for the Sudoku game using individual tile objects."""
     
@@ -69,22 +68,6 @@ class SudokuGameWindow:
         main_frame = tk.Frame(self.root, padx=self.margin, pady=self.margin)
         main_frame.pack()
         return main_frame
- 
-    def _create_status_frame(self, main_frame):
-        """Create the status frame with status label."""
-        status_frame = tk.Frame(main_frame, relief=tk.SUNKEN, borderwidth=1)
-        status_frame.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(10, 0))
-        
-        self.status_label = tk.Label(
-            status_frame, 
-            text=INITIAL_STATUS, 
-            anchor="w", 
-            padx=5, 
-            pady=3
-        )
-        self.status_label.pack(fill=tk.X)
-        
-        return status_frame
     
     def _create_board(self, main_frame):
         """Create the Sudoku board."""
@@ -98,23 +81,8 @@ class SudokuGameWindow:
     
     def _create_options_frame(self, main_frame):
         """Create the options frame."""
-        # Create frame with border
-        options_frame = tk.Frame(main_frame, relief=tk.GROOVE, borderwidth=1)
-        options_frame.grid(row=4, column=0, columnspan=3, pady=(10, 0), sticky="ew")
-        
-        # Add difficulty label and dropdown
-        tk.Label(options_frame, text="Difficulty:").pack(side=tk.LEFT, padx=5, pady=5)
-        
-        # Create the difficulty combobox
-        difficulty_combo = ttk.Combobox(
-            options_frame,
-            textvariable=self.difficulty,
-            values=[difficulty.value for difficulty in Difficulty],
-            state="readonly",
-            width=10
-        )
-        difficulty_combo.pack(side=tk.LEFT, padx=5, pady=5)
-        difficulty_combo.bind("<<ComboboxSelected>>", self._on_difficulty_change)
+        self.options_frame = OptionsFrame(main_frame, self._on_difficulty_change, self.difficulty, self._on_note_toggle)
+        self.options_frame.frame.grid(row=4, column=0, columnspan=3, pady=(10, 0), sticky="ew")
     
     def _create_controls_frame(self, main_frame):
         """Create the game controls frame with buttons."""
@@ -127,15 +95,15 @@ class SudokuGameWindow:
         )
         self.control_panel.grid(row=5, column=0, columnspan=3, pady=10, padx=0, sticky="ew")
     
+    def _create_status_frame(self, main_frame):
+        """Create the status frame with status label."""
+        self.status_frame = StatusFrame(main_frame)
+        self.status_frame.frame.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+
     def _show_stats(self):
         """Show a popup window with the game stats."""
-        # Get current difficulty from the StringVar
         current_difficulty = Difficulty(self.difficulty.get())
         StatsWindow(self.root, self.controller, current_difficulty)
-    
-    def update_status(self, status: str):
-        """Update the game status label."""
-        self.status_label.config(text=f"{status}")
     
     def update_board(self):
         """Update the UI to reflect the current game state."""
@@ -144,21 +112,20 @@ class SudokuGameWindow:
             return 
         
         board = self.controller.get_board()
-        self.board.update_board(board, self.selected_cell)
+        notes: list[list[set[int]]] = self.controller.get_notes()
+        self.board.update_board(board, notes, self.selected_cell)
         self.update_number_panel()
     
     def _on_cell_click(self, row: int, col: int):
         """Handle cell click events."""
-        # Update selection state
         self.selected_cell = (row, col)
-        
-        # Update the visual state of all tiles
         self._update_tile_appearances()
 
     def _update_tile_appearances(self):
         """Update the appearance of all tiles based on current game state."""
         board = self.controller.get_board()
-        self.board.update_board(board, self.selected_cell)
+        notes = self.controller.get_notes()
+        self.board.update_board(board, notes, self.selected_cell)
 
     def _on_key_press(self, event):
         """Handle keyboard input."""
@@ -170,11 +137,11 @@ class SudokuGameWindow:
         if self.controller.is_fixed_cell(row, col):
             return
         
-        # Number keys (1-9)
         if event.char.isdigit() and 1 <= int(event.char) <= 9:
+            print(f'Char: {event.char} in note mode: {self.controller.note_mode}')
             value = int(event.char)
             is_valid = self.controller.is_valid_move(row, col, value)
-            
+                
             if is_valid:
                 self._handle_valid_move(row, col, value)
             else:
@@ -183,6 +150,7 @@ class SudokuGameWindow:
         # Delete/backspace to clear a cell
         elif event.keysym in ('Delete', 'BackSpace'):
             self.controller.set_cell_value(row, col, 0)
+            self.controller.clear_notes(row, col)
             self.update_board()
 
     def _handle_valid_move(self, row: int, col: int, value: int):
@@ -193,18 +161,22 @@ class SudokuGameWindow:
     
     def _handle_invalid_move(self, row: int, col: int, value: int):
         """Handle an invalid move."""
+        if self.controller.note_mode:
+            self.board.tiles[row][col].flash_warning()
+            return
+               
         self.board.tiles[row][col].flash_invalid()
         is_game_over, wrong_moves, max_wrong_moves = self.controller.wrong_move_done()
         print(f'Invalid move: {value} at ({row},{col}), wrong_moves: {wrong_moves}/{max_wrong_moves}')
         self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.WRONG_MOVES, 1)
-        self.update_status(f"Invalid: {value} at ({row+1},{col+1}) - Wrong Moves: {wrong_moves}/{max_wrong_moves}")
+        self.status_frame.update_status(f"Invalid: {value} at ({row+1},{col+1}) - Wrong Moves: {wrong_moves}/{max_wrong_moves}")
         self.update_number_panel()
         if is_game_over:
             self.__game_over()
     
     def __game_over(self):
         """Handle game over state."""
-        self.update_status("Game Over")
+        self.status_frame.game_over()
         self.disable_grid()
         self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.GAMES_LOST, 1)
         self.controller.save_stats()
@@ -228,7 +200,7 @@ class SudokuGameWindow:
         difficulty = Difficulty(self.difficulty.get())
         self.controller.start_new_game(difficulty)
         self.enable_grid()
-        self.update_status(INITIAL_STATUS)
+        self.status_frame.start_game()
         self.controller.update_stat(difficulty, GameStats.GAMES_PLAYED, 1)
         self.update_number_panel()
     
@@ -265,10 +237,13 @@ class SudokuGameWindow:
         """Update the number panel with the current counts."""
         counts = [9] * 9
         board = self.controller.get_board()
-        print(f'>>>board: {board}')
         for row in range(self.grid_size):
             for col in range(self.grid_size):
                 value = board[row][col]
                 if value != 0:
                     counts[value-1] -= 1
         self.number_panel.update_counts(counts)
+    
+    def _on_note_toggle(self, note_mode: bool):
+        """Handle note mode toggle events."""
+        self.controller.set_note_mode(note_mode)

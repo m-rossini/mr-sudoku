@@ -10,18 +10,21 @@ class SudokuGame:
         self.generators = generators
         self.board = [[0 for _ in range(9)] for _ in range(9)]
         self.original_board = [[0 for _ in range(9)] for _ in range(9)]
+        self.notes = [[set() for _ in range(9)] for _ in range(9)]
     
     def new_game(self, difficulty: Difficulty):
         """Generate a new Sudoku puzzle based on the difficulty."""
-        print(f"SudokuGame::new_game::Generating new {difficulty.name} puzzle")
         self.board = self.generators[difficulty].generate(difficulty.name)
-        print(f'board: {self.board}')
         self.original_board = [row[:] for row in self.board]
-        print(f'original_board: {self.original_board}')
+        self.notes = [[set() for _ in range(9)] for _ in range(9)]
     
     def get_board(self) -> List[List[int]]:
         """Return the current board state."""
         return self.board
+    
+    def get_notes(self) -> List[List[set]]:
+        """Return the current notes state."""
+        return self.notes   
     
     def is_fixed_cell(self, row: int, col: int) -> bool:
         """Check if a cell is part of the original puzzle."""
@@ -31,7 +34,18 @@ class SudokuGame:
         """Set a cell value if it's not fixed."""
         if not self.is_fixed_cell(row, col):
             self.board[row][col] = value
+            self.notes[row][col].clear()
     
+    def toggle_note(self, row: int, col: int, value: int):
+        """Toggle a note on a cell."""
+        if self.is_fixed_cell(row, col):
+            return
+        
+        if value in self.notes[row][col]:
+            self.notes[row][col].remove(value)
+        else:
+            self.notes[row][col].add(value)
+
     def is_board_valid(self) -> bool:
         """Check if the current board state is valid."""
         for row in range(9):
