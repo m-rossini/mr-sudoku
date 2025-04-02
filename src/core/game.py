@@ -1,7 +1,9 @@
+import logging
 from typing import List, Dict
 from core.generator import SudokuGenerator
 from core.difficulty import Difficulty
 
+logger = logging.getLogger(__name__)
 class SudokuGame:
     """Core game logic for Sudoku."""
     
@@ -10,11 +12,12 @@ class SudokuGame:
         self.generators = generators
         self.board = [[0 for _ in range(9)] for _ in range(9)]
         self.original_board = [[0 for _ in range(9)] for _ in range(9)]
+        self.solved_board = [[0 for _ in range(9)] for _ in range(9)]
         self.notes = [[set() for _ in range(9)] for _ in range(9)]
     
     def new_game(self, difficulty: Difficulty):
         """Generate a new Sudoku puzzle based on the difficulty."""
-        self.board = self.generators[difficulty].generate(difficulty.name)
+        self.board, self.solved_board = self.generators[difficulty].generate(difficulty.name)
         self.original_board = [row[:] for row in self.board]
         self.notes = [[set() for _ in range(9)] for _ in range(9)]
     
@@ -90,6 +93,26 @@ class SudokuGame:
         if value == 0:
             return True
         
+        logger.debug(f"Checking move: row={row}, col={col}, value={value} vs original board value={self.original_board[row][col]}")
+        #let's check if the value is in the same position in the solved board
+        if value == self.solved_board[row][col]:
+            return True
+        
+        return False
+
+    def is_permitted_move(self, row: int, col: int, value: int) -> bool:
+        """
+        Check if placing value at the specified position would be a permitted move.
+        Permitted moves are different from valid moves in that they don't check the solved board. 
+        
+        Args:
+            row: Row index (0-8)
+            col: Column index (0-8)
+            value: Number to check (1-9)
+            
+        Returns:
+            bool: True if the move is permitted, False otherwise
+        """
         # Check row
         for c in range(9):
             if c != col and self.board[row][c] == value:
@@ -107,5 +130,5 @@ class SudokuGame:
                 if (r != row or c != col) and self.board[r][c] == value:
                     return False
         
-        # If we get here, the move is valid
+        # If we get here, the move is permitted
         return True

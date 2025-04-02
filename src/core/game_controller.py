@@ -1,9 +1,11 @@
+import time
+import logging
 from core.game import SudokuGame
 from core.difficulty import Difficulty
 from core.stats import GameStats
 from ui.game_window import SudokuGameWindow
-import time
 
+logger = logging.getLogger(__name__)
 class GameController:
     """Controller to manage the game logic and UI interaction."""
     
@@ -90,7 +92,11 @@ class GameController:
         return self.wrong_moves >= self.MAX_WRONG_MOVES
     
     def is_valid_move(self, row: int, col: int, value: int) -> bool:
-        return  self.game.is_valid_move(row, col, value)
+        """Check if the given move is valid for normal mode and permitted for notes."""
+        if self.note_mode:
+            return self.game.is_permitted_move(row, col, value)
+        else:
+            return  self.game.is_valid_move(row, col, value)
         
     def reset_wrong_moves(self):
         """Reset the wrong moves counter."""
@@ -119,4 +125,4 @@ class GameController:
     def set_note_mode(self, note_mode: bool):
         """Set the note mode."""
         self.note_mode = note_mode
-        print(f"Note mode is now: {self.note_mode}")
+        logger.debug(f">>>Note mode is now: {self.note_mode}")

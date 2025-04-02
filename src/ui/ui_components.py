@@ -1,10 +1,12 @@
 import tkinter as tk
+import logging
 from tkinter import ttk  # Add this import for themed widgets
 from typing import Callable, List
 from ui.formatters import BasicStatsFormatter, StatsFormatter
 from core.difficulty import Difficulty  # Add this import
 from typing import List, Optional, Tuple, Callable
 
+logger = logging.getLogger(__name__)
 class SudokuTile:
     """Represents a single tile in the Sudoku grid."""
     
@@ -56,6 +58,7 @@ class SudokuTile:
     
     def _handle_click(self, event):
         """Handle click events on the tile."""
+        logger.debug(f"Tile clicked: row={self.row}, col={self.col}")
         self.on_click(self.row, self.col)
     
     def set_value(self, value: int, is_fixed: bool = False):
@@ -107,8 +110,12 @@ class SudokuTile:
                 bg=bg_color
             )
             note_label.place(relx=((i-1)%3)/3, rely=((i-1)//3)/3, relwidth=1/3, relheight=1/3)
+            # Bind click event to each note label
+            note_label.bind("<Button-1>", self._handle_click)
         
         self.note_frame.place(relwidth=1, relheight=1)  # Place the note_frame
+        # Also bind click event to the note_frame itself
+        self.note_frame.bind("<Button-1>", self._handle_click)
 
     def grid(self, **kwargs):
         """Grid the tile using the frame's grid method."""
@@ -118,6 +125,7 @@ class SudokuTile:
         """Flash the tile with the given color for a specified duration."""
         original_bg = self.label.cget("bg")
         self.label.config(bg=color)
+        logger.debug(f">>>Flashing tile with color: {color} replacing temmporarily the orginal of: {original_bg}")
         self.label.after(duration, lambda: self.label.config(bg=original_bg))
 
     def flash_invalid(self):
@@ -126,6 +134,7 @@ class SudokuTile:
 
     def flash_warning(self):
         """Flash the tile to indicate a warning."""
+        logger.debug(">>>Flashing warning")
         self.flash("orange")
 
     def highlight(self, bg_hex_color="#d4edda"):
@@ -307,6 +316,7 @@ class SudokuBoard:
             selected_row, selected_col = selected_cell
             selected_value = board[selected_row][selected_col]
         
+        logger.debug(f">>> Updating board with selected cell: {selected_cell}, value: {selected_value}")
         for row in range(9):
             for col in range(9):
                 tile = self.tiles[row][col]
