@@ -1,9 +1,11 @@
 import tkinter as tk
+import logging
 from tkinter import ttk, messagebox
 from core.difficulty import Difficulty
 from core.stats import GameStats
 from ui.ui_components import NumberPanel, StatsWindow, SudokuBoard, ControlPanel, StatusFrame, OptionsFrame # Add OptionsFrame import
 
+logger = logging.getLogger(__name__)
 class SudokuGameWindow:
     """Tkinter UI for the Sudoku game using individual tile objects."""
     
@@ -40,6 +42,10 @@ class SudokuGameWindow:
         
         # Bind keyboard events for number input
         self.root.bind("<Key>", self._on_key_press)
+        
+        # Set focus to the root window
+        self.root.focus_set()
+        logger.debug("Focus set to root window")
     
     def _on_window_close(self):
         """Handle window close event."""
@@ -123,12 +129,14 @@ class SudokuGameWindow:
 
     def _update_tile_appearances(self):
         """Update the appearance of all tiles based on current game state."""
+        logger.debug(f">>>Selected cell: {self.selected_cell}")
         board = self.controller.get_board()
         notes = self.controller.get_notes()
         self.board.update_board(board, notes, self.selected_cell)
 
     def _on_key_press(self, event):
         """Handle keyboard input."""
+        logger.debug(f"Key pressed: char={event.char}, keysym={event.keysym}")
         if not self.selected_cell:
             return
         
@@ -138,7 +146,7 @@ class SudokuGameWindow:
             return
         
         if event.char.isdigit() and 1 <= int(event.char) <= 9:
-            print(f'Char: {event.char} in note mode: {self.controller.note_mode}')
+            logger.debug(f'>>>Char: {event.char} in note mode: {self.controller.note_mode}')
             value = int(event.char)
             is_valid = self.controller.is_valid_move(row, col, value)
                 
@@ -162,12 +170,13 @@ class SudokuGameWindow:
     def _handle_invalid_move(self, row: int, col: int, value: int):
         """Handle an invalid move."""
         if self.controller.note_mode:
+            logger.debug(f">> Should Flash.Invalid note: {value} at ({row},{col})")
             self.board.tiles[row][col].flash_warning()
             return
                
         self.board.tiles[row][col].flash_invalid()
         is_game_over, wrong_moves, max_wrong_moves = self.controller.wrong_move_done()
-        print(f'Invalid move: {value} at ({row},{col}), wrong_moves: {wrong_moves}/{max_wrong_moves}')
+        logger.info(f'Invalid move: {value} at ({row},{col}), wrong_moves: {wrong_moves}/{max_wrong_moves}')
         self.controller.update_stat(Difficulty(self.difficulty.get()), GameStats.WRONG_MOVES, 1)
         self.status_frame.update_status(f"Invalid: {value} at ({row+1},{col+1}) - Wrong Moves: {wrong_moves}/{max_wrong_moves}")
         self.update_number_panel()
