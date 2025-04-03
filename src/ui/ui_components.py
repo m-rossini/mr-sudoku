@@ -72,7 +72,11 @@ class SudokuTile:
     
     def update_display(self):
         """Update the tile's appearance based on its state."""
-        self.label.config(text="" if self.value == 0 else str(self.value))
+        # Set the text value
+        display_text = "" if self.value == 0 else str(self.value)
+        self.label.config(text=display_text)
+        
+        logger.debug(f">>>SudokuTile::update_display - Updating tile ({self.row}, {self.col}) - value={self.value}, fixed={self.is_fixed}, notes={self.notes}")
         
         # Set the appropriate colors based on state
         if self.is_selected:
@@ -82,13 +86,16 @@ class SudokuTile:
         else:
             self.label.config(bg="white", fg="blue")
 
+        # Determine whether to show notes or value
         if self.value == 0 and self.notes:
+            logger.debug(f">>>SudokuTile::update_display - Showing notes for ({self.row}, {self.col})")
             self._draw_notes()
             self.note_frame.lift()  # Show notes
-            self.label.lower()       # Hide label
+            self.label.lower()      # Hide label
         else:
+            logger.debug(f">>>SudokuTile::update_display - Showing value {self.value} for ({self.row}, {self.col})")
             self.note_frame.lower() # Hide notes
-            self.label.lift()      # Show label
+            self.label.lift()       # Show label
     
     def _draw_notes(self):
         """Draw notes in a simple 3x3 grid with fixed sizes using place."""
@@ -134,7 +141,6 @@ class SudokuTile:
 
     def flash_warning(self):
         """Flash the tile to indicate a warning."""
-        logger.debug(">>>Flashing warning")
         self.flash("orange")
 
     def highlight(self, bg_hex_color="#d4edda"):

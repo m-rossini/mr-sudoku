@@ -18,33 +18,68 @@ class GameController:
     def __init__(self, game: SudokuGame, window: SudokuGameWindow):
         self.game = game
         self.window = window
-        self.window.set_controller(self)
         self.wrong_moves = 0
         self.stats = GameStats()
-        self.start_new_game(Difficulty.MEDIUM)
         self.note_mode = False
+        self.notes = [[set() for _ in range(9)] for _ in range(9)]
     
     def start_new_game(self, difficulty: Difficulty):
         """Start a new game with the given difficulty."""
+        logger.debug(f">>>Starting new game with difficulty: {difficulty.value}")
         self.start_time = time.time()
         self.game.new_game(difficulty)
         self.reset_wrong_moves()
+        
+        # Reset notes when starting a new game
+        self.notes = [[set() for _ in range(9)] for _ in range(9)]
+        
         self.stats.stats[difficulty][GameStats.GAMES_PLAYED] += 1
         self.window.update_board()
     
     def set_cell_value(self, row: int, col: int, value: int):
         """Set the value of a cell in the game."""
+        logger.debug(f">>>GameController::set_cell_value - Setting value {value} at ({row}, {col}), note_mode={self.note_mode}")
+        
         if self.note_mode:
-            self.game.toggle_note(row, col, value)
+            self.toggle_note(row, col, value)
         else:
+            # Normal mode - set the cell value
+            if self.game.is_fixed_cell(row, col):
+                logger.debug(f">>>GameController::set_cell_value - Cell ({row}, {col}) is fixed, ignoring input")
+                return
+                
+            previous_value = self.game.get_board()[row][col]
             self.game.set_cell(row, col, value)
+            
+            # Clear notes when setting a cell value
+            self.notes[row][col].clear()
+            
+            logger.debug(f">>>GameController::set_cell_value - Changed value from {previous_value} to {value}")
 
+        # Force a complete board update to ensure UI is consistent
         self.window.update_board()
+    
+    def toggle_note(self, row: int, col: int, value: int):
+        """Toggle a note on a cell."""
+        if self.game.is_fixed_cell(row, col):
+            return
+        
+        logger.debug(f">>>Toggling note {value} at position ({row}, {col})")
+        
+        if value in self.notes[row][col]:
+            self.notes[row][col].remove(value)
+        else:
+            self.notes[row][col].add(value)
     
     def clear_notes(self, row: int, col: int):
         """Clear the notes for a cell."""
-        self.game.notes[row][col].clear()
+        logger.debug(f">>>Clearing notes at position ({row}, {col})")
+        self.notes[row][col].clear()
         self.window.update_board()
+    
+    def get_notes(self):
+        """Get the current notes state."""
+        return self.notes
 
     def check_solution(self):
         """Check if the current board state is valid."""
@@ -64,10 +99,6 @@ class GameController:
     def get_board(self):
         """Get the current board state."""
         return self.game.get_board()
-    
-    def get_notes(self):
-        """Get the current notes state."""
-        return self.game.get_notes()
     
     def is_fixed_cell(self, row: int, col: int) -> bool:
         """Check if a cell is part of the original puzzle."""
@@ -126,3 +157,24 @@ class GameController:
         """Set the note mode."""
         self.note_mode = note_mode
         logger.debug(f">>>Note mode is now: {self.note_mode}")
+
+    def generate_auto_notes(self):
+        """
+        Generate automatic notes for all empty cells.
+        This calculates possible values for each empty cell.
+        """
+        logger.debug(">>>Generating auto notes for all empty cells")
+        
+        # Clear all existing notes
+        self.notes = [[set() for _ in range(9)] for _ in range(9)]
+        
+        # Generate new notes for all empty cells
+        board = self.game.get_board()
+        for row in range(9):
+            for col in range(9):
+                if board[row][col] == 0:  # Only for empty cells
+                    possible_values = self.game.calculate_possible_values(row, col)
+                    self.notes[row][col] = possible_values
+        
+        # Update the display
+        self.window.update_board()
