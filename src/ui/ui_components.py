@@ -315,26 +315,34 @@ class SudokuBoard:
                         tile.grid(row=cell_row, column=cell_col)
                         self.tiles[row][col] = tile
     
-    def update_board(self, board: List[List[int]], notes: list[list[set[int]]], selected_cell: Optional[Tuple[int, int]] = None):
+    def update_board(self, board: List[List[int]], notes: list[list[set[int]]], selected_cell: Optional[Tuple[int, int]] = None, note_mode: bool = False):
         """Update the UI to reflect the current game state."""
         selected_value = None
         if selected_cell:
             selected_row, selected_col = selected_cell
             selected_value = board[selected_row][selected_col]
         
-        logger.debug(f">>> Updating board with selected cell: {selected_cell}, value: {selected_value}")
+        logger.debug(f">>>SudokuBoard::update_board - Updating board with selected cell: {selected_cell}, value: {selected_value}, note_mode: {note_mode}")
+        
+        # First reset all tiles to their base display state
         for row in range(9):
             for col in range(9):
                 tile = self.tiles[row][col]
                 is_selected = selected_cell and (row, col) == selected_cell
                 tile.notes = notes[row][col]
                 value = board[row][col]
-                is_fixed = value != 0
+                is_fixed = value != 0 and board[row][col] == value  # Check if it's an original value
                 tile.set_selected(is_selected)
                 tile.set_value(value, is_fixed)
                 tile.update_display()
-                if selected_value and selected_value != 0 and value == selected_value and not is_selected:
-                    tile.highlight("#e1f5fe")
+        
+        # Then highlight cells with the same value as the selected cell (only in normal mode)
+        if selected_cell and selected_value and selected_value != 0 and not note_mode:
+            logger.debug(f">>>SudokuBoard::update_board - Highlighting cells with value {selected_value}")
+            for row in range(9):
+                for col in range(9):
+                    if board[row][col] == selected_value and (row, col) != selected_cell:
+                        self.tiles[row][col].highlight("#e1f5fe")  # Light blue highlight
 
 class ControlPanel:
     """Panel to display game controls."""

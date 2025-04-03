@@ -114,12 +114,15 @@ class SudokuGameWindow:
     def update_board(self):
         """Update the UI to reflect the current game state."""
         if not self.controller:
-            print("No controller set for SudokuGameWindow")
+            logger.debug(">>>SudokuGameWindow::update_board - No controller set, ignoring update")
             return 
         
         board = self.controller.get_board()
         notes: list[list[set[int]]] = self.controller.get_notes()
-        self.board.update_board(board, notes, self.selected_cell)
+        note_mode = self.controller.note_mode  # Get the current note mode
+        
+        # Pass note_mode to the board's update method
+        self.board.update_board(board, notes, self.selected_cell, note_mode)
         self.update_number_panel()
     
     def _on_cell_click(self, row: int, col: int):
