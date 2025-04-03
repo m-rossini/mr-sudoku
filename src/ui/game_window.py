@@ -136,27 +136,34 @@ class SudokuGameWindow:
 
     def _on_key_press(self, event):
         """Handle keyboard input."""
-        logger.debug(f"Key pressed: char={event.char}, keysym={event.keysym}")
+        logger.debug(f">>>SudokuGameWindow::_on_key_press - Key pressed: char={event.char}, keysym={event.keysym}")
         if not self.selected_cell:
+            logger.debug(">>>SudokuGameWindow::_on_key_press - No cell selected, ignoring key press")
             return
         
         row, col = self.selected_cell
         
         if self.controller.is_fixed_cell(row, col):
+            logger.debug(f">>>SudokuGameWindow::_on_key_press - Cell ({row}, {col}) is fixed, ignoring key press")
             return
         
         if event.char.isdigit() and 1 <= int(event.char) <= 9:
-            logger.debug(f'>>>Char: {event.char} in note mode: {self.controller.note_mode}')
             value = int(event.char)
+            logger.debug(f'>>>SudokuGameWindow::_on_key_press - Processing digit {value} in note_mode={self.controller.note_mode}')
+            
             is_valid = self.controller.is_valid_move(row, col, value)
+            logger.debug(f'>>>SudokuGameWindow::_on_key_press - Move validity: {is_valid}')
                 
             if is_valid:
                 self._handle_valid_move(row, col, value)
+                # Force UI update after handling the move
+                self.update_board()
             else:
                 self._handle_invalid_move(row, col, value)
         
         # Delete/backspace to clear a cell
         elif event.keysym in ('Delete', 'BackSpace'):
+            logger.debug(f">>>SudokuGameWindow::_on_key_press - Clearing cell ({row}, {col})")
             self.controller.set_cell_value(row, col, 0)
             self.controller.clear_notes(row, col)
             self.update_board()

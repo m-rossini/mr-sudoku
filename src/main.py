@@ -43,6 +43,7 @@ def main():
         # Create the root window
         root = tk.Tk()
         root.title("Mr. Sudoku")
+        window = SudokuGameWindow(root)  
         
         # Create game logic with a dictionary of generators
         generators = {
@@ -52,8 +53,10 @@ def main():
         }
         game = SudokuGame(generators)
         
-        window = SudokuGameWindow(root)  
         controller = GameController(game, window)
+
+        window.set_controller(controller)
+        controller.start_new_game(Difficulty.MEDIUM)
         
         # Start the Tkinter event loop
         root.mainloop()
