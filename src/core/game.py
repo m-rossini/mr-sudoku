@@ -1,125 +1,102 @@
+from abc import ABC, abstractmethod
+from typing import List
+from core.controller import ControllerDependent
 import logging
-from typing import List, Dict
-from core.generator import SudokuGenerator
-from core.difficulty import Difficulty
 
 logger = logging.getLogger(__name__)
-class SudokuGame:
-    """Core game logic for Sudoku."""
-    
-    def __init__(self, generators: Dict[Difficulty, SudokuGenerator]):
-        """Initialize a new game with a dictionary of generators."""
-        self.generators = generators
-        self.board = [[0 for _ in range(9)] for _ in range(9)]
-        self.original_board = [[0 for _ in range(9)] for _ in range(9)]
-        self.solved_board = [[0 for _ in range(9)] for _ in range(9)]
-        # Remove notes attribute
-    
-    def new_game(self, difficulty: Difficulty):
+
+
+class GameEngine(ControllerDependent):
+    def __init__(self, difficulty, generator, solver):
+        logger.debug(">>>GameEngine::init - Initializing GameEngine")
+        self.generator = generator
+        self.solver = solver
+        self.difficulty = difficulty
+
+    def get_current_difficulty(self):
+        """
+        Get the current difficulty level.
+
+        Returns:
+            Difficulty: The current difficulty level.
+        """
+        return self.difficulty
+
+    def set_controller(self, controller):
+        """
+        Set the controller for this GameEngine.
+
+        Args:
+            controller: The controller instance.
+        """
+        logger.debug(">>>GameEngine::set_controller - Setting controller")
+        self.controller = controller
+
+    def start_game(self):
+        """
+        Start the game by generating a new Sudoku puzzle.
+        """
+        logger.debug(">>>GameEngine::start_game - Starting new game")
+        self._board, self._solution = self.generator.generate(self.difficulty)
+        return self._board, self._solution
+
+
+class SudokuSolver(ABC):
+    """Abstract base class for Sudoku puzzle generators."""
+
+    @abstractmethod
+    def solve(self, board: List[List[int]]):
         """Generate a new Sudoku puzzle based on the difficulty."""
-        self.board, self.solved_board = self.generators[difficulty].generate(difficulty.name)
-        self.original_board = [row[:] for row in self.board]
-        # Remove notes initialization
-    
-    def get_board(self) -> List[List[int]]:
-        """Return the current board state."""
-        return self.board
-    
-    # Remove get_notes method
-    
-    def is_fixed_cell(self, row: int, col: int) -> bool:
-        """Check if a cell is part of the original puzzle."""
-        return self.original_board[row][col] != 0
-    
-    def set_cell(self, row: int, col: int, value: int):
-        """Set a cell value if it's not fixed."""
-        if not self.is_fixed_cell(row, col):
-            self.board[row][col] = value
-    
-    def is_board_valid(self) -> bool:
-        """Check if the current board state is valid."""
-        for row in range(9):
-            for col in range(9):
-                value = self.board[row][col]
-                if value != 0:
-                    # Temporarily empty the cell to avoid self-check
-                    self.board[row][col] = 0
-                    if not self.is_valid_move(row, col, value):
-                        self.board[row][col] = value
-                        return False
-                    # Restore the cell value
-                    self.board[row][col] = value
-        return True
-    
-    def is_complete(self) -> bool:
-        """Check if the puzzle is solved correctly."""
-        for row in self.board:
-            if 0 in row:
-                return False
-        
-        return self.is_board_valid()
-    
-    def solve(self) -> bool:
-        """Solve the current puzzle state."""
-        # Implement a solving algorithm (backtracking)
         pass
 
-    def is_valid_move(self, row: int, col: int, value: int) -> bool:
-        """
-        Check if placing value at the specified position would be a valid move.
-        
-        Args:
-            row: Row index (0-8)
-            col: Column index (0-8)
-            value: Number to check (1-9)
-            
-        Returns:
-            bool: True if the move is valid, False otherwise
-        """
-        # Skip validation for empty cells (value 0)
-        if value == 0:
-            return True
-        
-        logger.debug(f"Checking move: row={row}, col={col}, value={value} vs original board value={self.original_board[row][col]}")
-        #let's check if the value is in the same position in the solved board
-        if value == self.solved_board[row][col]:
-            return True
-        
-        return False
 
-    def is_permitted_move(self, row: int, col: int, value: int) -> bool:
-        """
-        Check if placing value at the specified position would be a permitted move.
-        Permitted moves are different from valid moves in that they don't check the solved board. 
-        
-        Args:
-            row: Row index (0-8)
-            col: Column index (0-8)
-            value: Number to check (1-9)
-            
-        Returns:
-            bool: True if the move is permitted, False otherwise
-        """
-        # Check row
-        for c in range(9):
-            if c != col and self.board[row][c] == value:
-                return False
-        
-        # Check column
-        for r in range(9):
-            if r != row and self.board[r][col] == value:
-                return False
-        
-        # Check 3x3 box
-        box_row, box_col = 3 * (row // 3), 3 * (col // 3)
-        for r in range(box_row, box_row + 3):
-            for c in range(box_col, box_col + 3):
-                if (r != row or c != col) and self.board[r][c] == value:
-                    return False
-        
-        # If we get here, the move is permitted
-        return True
+class SimpleSudokuSolver(SudokuSolver):
+    """A simple Sudoku solver implementation."""
 
-    def get_cell_value(self, row: int, col: int) -> int:
-        """Get the value of a specific cell."""
-        return self.board[row][col]
+    def solve(self, board: List[List[int]]) -> List[List[int]]:
+        """Solve the Sudoku puzzle."""
+        logger.debug(
+            ">>>SimpleSudokuSolver::solve - Starting to solve the Sudoku puzzle"
+        )
+        return board
+
+
+class SudokuGenerator(ABC):
+    """Abstract base class for Sudoku puzzle generators."""
+
+    @abstractmethod
+    def generate(self, difficulty: str) -> tuple[List[List[int]], List[List[int]]]:
+        """Generate a new Sudoku puzzle based on the difficulty."""
+        pass
+
+
+class FixedBoardSudokuGenerator(SudokuGenerator):
+    """A simple Sudoku puzzle generator implementation."""
+
+    def generate(self, difficulty: str) -> tuple[List[List[int]], List[List[int]]]:
+        """Generate a new Sudoku puzzle based on the difficulty."""
+        unsolved_board = [
+            [3, 0, 6, 5, 0, 8, 4, 0, 0],
+            [5, 2, 0, 0, 0, 0, 0, 0, 0],
+            [0, 8, 7, 0, 0, 0, 0, 3, 1],
+            [0, 0, 3, 0, 1, 0, 0, 8, 0],
+            [9, 0, 0, 8, 6, 3, 0, 0, 5],
+            [0, 5, 0, 0, 9, 0, 6, 0, 0],
+            [1, 3, 0, 0, 0, 0, 2, 5, 0],
+            [0, 0, 0, 0, 0, 0, 0, 7, 4],
+            [0, 0, 5, 2, 0, 6, 3, 0, 0],
+        ]
+
+        solved_board = [
+            [3, 1, 6, 5, 7, 8, 4, 9, 2],
+            [5, 2, 9, 1, 3, 4, 7, 6, 8],
+            [4, 8, 7, 6, 2, 9, 1, 3, 5],
+            [2, 6, 3, 4, 1, 5, 9, 8, 7],
+            [9, 7, 4, 8, 6, 3, 2, 1, 5],
+            [8, 5, 1, 7, 9, 2, 6, 4, 3],
+            [1, 3, 8, 9, 4, 7, 2, 5, 6],
+            [6, 9, 2, 3, 5, 1, 8, 7, 4],
+            [7, 4, 5, 2, 8, 6, 3, 1, 9],
+        ]
+
+        return (unsolved_board, solved_board)
