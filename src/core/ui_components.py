@@ -64,13 +64,44 @@ class UIManager(ControllerDependent):
         
         if event.char.isdigit() and '1' <= event.char <= '9':
             value = int(event.char)
-            logger.debug(f">>>UIManager::_on_key_press - Digit pressed: {value}")
+            self._handle_number_input(row, col, value)
             is_valid_input = self.controller.is_valid_input(row, col, value)
-            logger.debug(f">>>UIManager::_on_key_press - Valid input: {is_valid_input}")
         elif event.keysym in ('BackSpace', 'Delete'):
-            logger.debug(">>>UIManager::_on_key_press - Backspace/Delete pressed")
+            self._handle_delete_input(row, col)
         else: 
-            logger.debug(f">>>UIManager::_on_key_press - Not supported key: {event.keysym}")
+            logger.info(f">UIManager::_on_key_press - Not supported key: {event.keysym}")
+
+    def _handle_number_input(self, row, col, value):
+        """
+        Handle number input for the selected cell.
+        
+        Args:
+            row: Row index of the selected cell
+            col: Column index of the selected cell
+            value: The number to input
+        """ 
+        logger.debug(f">>>UIManager::_handle_number_input - Inputting value {value} at ({row}, {col})")
+        
+        # Check if the input is valid
+        if self.controller.is_valid_input(row, col, value):
+            logger.debug(f">>>UIManager::_handle_number_input - Valid input: {value}")
+            self.board.tiles[row][col].set_value(value)
+            self.controller.accumulate_moves(1)
+        else:
+            logger.warning(f">>>UIManager::_handle_number_input - Invalid input: {value}")
+            self.board.flash_cell(row, col, color="red", duration=500)
+            self.controller.accumulate_wrong_moves(1)
+
+    def _handle_delete_input(self, row, col):   
+        """
+        Handle delete input for the selected cell.
+        
+        Args:
+            row: Row index of the selected cell
+            col: Column index of the selected cell
+        """
+        logger.debug(f">>>UIManager::_handle_delete_input - Deleting value at ({row}, {col})")
+        self.board.clear_highlights()
 
 class SudokuTile:
     """A single tile/cell in the Sudoku grid."""
@@ -343,6 +374,15 @@ class SudokuBoard:
             duration: Duration of flash in milliseconds
         """
         self.tiles[row][col].flash(color, duration)
+    
+    def clear_highlights(self):
+        """
+        Clear all highlights on the board.
+        """
+        logger.debug(">>>SudokuBoard::clear_highlights - Clearing all highlights")
+        for row in range(9):
+            for col in range(9):
+                self.tiles[row][col].highlight(False)    
     
     def get_selected_position(self):
         """

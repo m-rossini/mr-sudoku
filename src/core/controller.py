@@ -29,6 +29,8 @@ class GameController:
         self._uimanager.set_controller(self)
         self._board = None
         self._solution = None
+        self._moves_counter = 0
+        self._wrong_moves_counter = 0
 
     def start_game(self):
         """
@@ -42,3 +44,24 @@ class GameController:
     def is_valid_input(self, row, col, value):
         logger.debug(f">>>GameController::handle_key_input - Key input at ({row}, {col}): {value}")
         return self._engine.can_input(self._board, row, col, value)
+    
+    def accumulate_wrong_moves(self, value_to_accumulate):
+        if value_to_accumulate < 0:
+            logger.debug(f">>>GameController::accumulate_wrong_moves - Accumulating wrong moves received invalid value and it will be ignored: {value_to_accumulate}")
+            return self._wrong_moves_counter
+        logger.debug(f">>>GameController::accumulate_wrong_moves - Accumulating wrong moves: {value_to_accumulate}")
+        self._wrong_moves_counter += value_to_accumulate
+        return self._wrong_moves_counter
+    
+    def accumulate_moves(self,value_to_accumulate):
+        """
+            Accumulate moves made by the player. If passed a negative value, it will be subtracted from the moves counter.
+            if passed a zero value, it will not change the moves counter and will return the current moves counter.
+            Args:
+                value_to_accumulate: The value to accumulate.
+            Returns:
+                int: The updated moves counter.
+        """
+        logger.debug(f">>>GameController::accumulate_moves - Accumulating moves: {value_to_accumulate}")
+        self._moves_counter += value_to_accumulate
+        return self._moves_counter

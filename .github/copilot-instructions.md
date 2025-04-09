@@ -6,4 +6,6 @@ Prefer composition over inheritance
 When coding, enforce single principle of responsability
 When coding, enforce open for extension closed for modification principle
 When coding, enforce interface segregation principle
-When codign, enforce dependency injection principle
+When coding, enforce dependency injection principle
+
+When creating tests, please test interfaces do not test implementation details
