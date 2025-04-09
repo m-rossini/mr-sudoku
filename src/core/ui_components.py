@@ -17,6 +17,9 @@ class UIManager(ControllerDependent):
         self.board = SudokuBoard(self.main_frame, self._on_tile_click)
         self.board.frame.pack(padx=10, pady=10)
         
+        # Bind keyboard events to the root window
+        self.root.bind("<Key>", self._on_key_press)
+        
     def set_controller(self, controller):
         """
         Set the controller for this UIManager.
@@ -41,6 +44,34 @@ class UIManager(ControllerDependent):
         """Handle tile click events."""
         logger.debug(f">>>UIManager::_on_tile_click - Tile clicked at position ({row}, {col})")
     
+    def _on_key_press(self, event):
+        """
+        Handle key press events.
+        
+        Args:
+            event: The key event object
+        """
+        logger.debug(f">>>UIManager::_on_key_press - Key pressed: {event.keysym}, char: {event.char}")
+        
+        # Get the currently selected cell, if any
+        selected_pos = self.board.get_selected_position()
+        if not selected_pos:
+            logger.debug(">>>UIManager::_on_key_press - No cell selected, ignoring key press")
+            return
+            
+        row, col = selected_pos
+        logger.debug(f">>>UIManager::_on_key_press - Selected cell: ({row}, {col})")
+        
+        if event.char.isdigit() and '1' <= event.char <= '9':
+            value = int(event.char)
+            logger.debug(f">>>UIManager::_on_key_press - Digit pressed: {value}")
+            is_valid_input = self.controller.is_valid_input(row, col, value)
+            logger.debug(f">>>UIManager::_on_key_press - Valid input: {is_valid_input}")
+        elif event.keysym in ('BackSpace', 'Delete'):
+            logger.debug(">>>UIManager::_on_key_press - Backspace/Delete pressed")
+        else: 
+            logger.debug(f">>>UIManager::_on_key_press - Not supported key: {event.keysym}")
+
 class SudokuTile:
     """A single tile/cell in the Sudoku grid."""
     

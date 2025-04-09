@@ -18,7 +18,7 @@ class GameEngine(ControllerDependent):
         Get the current difficulty level.
 
         Returns:
-            Difficulty: The current difficulty level.
+        Difficulty: The current difficulty level.
         """
         return self.difficulty
 
@@ -27,7 +27,7 @@ class GameEngine(ControllerDependent):
         Set the controller for this GameEngine.
 
         Args:
-            controller: The controller instance.
+        controller: The controller instance.
         """
         logger.debug(">>>GameEngine::set_controller - Setting controller")
         self.controller = controller
@@ -39,6 +39,50 @@ class GameEngine(ControllerDependent):
         logger.debug(">>>GameEngine::start_game - Starting new game")
         self._board, self._solution = self.generator.generate(self.difficulty)
         return self._board, self._solution
+
+    def can_input(self, _board, row, col, value):
+        """
+        Check if a value can be input at the specified position.
+
+        Args:
+                row: The row index.
+                col: The column index.
+                value: The value to be checked.
+
+        Returns:
+                bool: True if the input is valid, False otherwise.
+        """
+        logger.debug(f">>>GameEngine::can_input - Checking input validity at ({row}, {col}): {value}")
+
+        # Check if the value is valid in the current board state
+        if _board[row][col] == 0:
+            # Check if the value is not already in the same row
+            for i in range(9):
+                if _board[row][i] == value:
+                    logger.debug(f">>>GameEngine::can_input - Value {value} already in row {row}")
+                    return False
+
+            # Check if the value is not already in the same column
+            for i in range(9):
+                if _board[i][col] == value:
+                    logger.debug(f">>>GameEngine::can_input - Value {value} already in column {col}")
+                    return False
+
+            # Check if the value is not already in the same 3x3 box
+            box_row_start = (row // 3) * 3
+            box_col_start = (col // 3) * 3
+            for i in range(box_row_start, box_row_start + 3):
+                for j in range(box_col_start, box_col_start + 3):
+                    if _board[i][j] == value:
+                        logger.debug(f">>>GameEngine::can_input - Value {value} already in box ({box_row_start}, {box_col_start})")
+                        return False
+
+            # If all checks pass, the input is valid
+            logger.debug(f">>>GameEngine::can_input - Input at ({row}, {col}) is valid")
+            return True
+        else:
+            logger.debug(f">>>GameEngine::can_input - Cell at ({row}, {col}) is not empty")
+            return False
 
 
 class SudokuSolver(ABC):

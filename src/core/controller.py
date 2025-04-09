@@ -38,3 +38,7 @@ class GameController:
         self._board, self._solution = self._engine.generator.generate(self._engine.get_current_difficulty())
         self._uimanager.start_game(self._board)
         return
+
+    def is_valid_input(self, row, col, value):
+        logger.debug(f">>>GameController::handle_key_input - Key input at ({row}, {col}): {value}")
+        return self._engine.can_input(self._board, row, col, value)
