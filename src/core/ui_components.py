@@ -1,11 +1,12 @@
 import tkinter as tk
 import logging
 from core.controller import ControllerDependent
+import time
 
 logger = logging.getLogger(__name__)
 
 class UIManager(ControllerDependent):
-    FLASH_DURATION_MS = 500  
+    FLASH_DURATION_MS = 200  
     def __init__(self, root):
         logger.debug(">>>UIManager::init - Initializing UIManager")
         self.root = root
@@ -36,7 +37,7 @@ class UIManager(ControllerDependent):
     
     def on_game_over(self):
         logger.debug(">>>UIManager::_on_game_over - Game over")
-        
+        time.sleep(UIManager.FLASH_DURATION_MS/1000)
         for row in range(9):
             for col in range(9):
                 tile = self.board.tiles[row][col]
@@ -248,7 +249,7 @@ class SudokuTile:
             else:
                 self.label.config(bg="white")    # White for regular cells
     
-    def flash(self, color="red", duration=500):
+    def flash(self, color="red", duration=UIManager.FLASH_DURATION_MS):
         """
         Flash the tile with a color temporarily.
         
