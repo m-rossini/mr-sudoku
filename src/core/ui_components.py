@@ -5,10 +5,14 @@ from core.controller import ControllerDependent
 logger = logging.getLogger(__name__)
 
 class UIManager(ControllerDependent):
+    FLASH_DURATION_MS = 500  
     def __init__(self, root):
         logger.debug(">>>UIManager::init - Initializing UIManager")
         self.root = root
         
+        # Main frame for all components
+        self.main_frame = tk.Frame(root, padx=10, pady=10)
+        self.main_frame.pack(expand=True, fill=tk.BOTH)
         # Main frame for all components
         self.main_frame = tk.Frame(root, padx=10, pady=10)
         self.main_frame.pack(expand=True, fill=tk.BOTH)
@@ -30,6 +34,23 @@ class UIManager(ControllerDependent):
         logger.debug(">>>UIManager::set_controller - Setting controller")
         self.controller = controller
     
+    def on_game_over(self):
+        logger.debug(">>>UIManager::_on_game_over - Game over")
+        
+        for row in range(9):
+            for col in range(9):
+                tile = self.board.tiles[row][col]
+                tile.label.config(bg="grey")
+                tile.label.unbind("<Button-1>")
+                tile.frame.unbind("<Button-1>")
+                tile.on_click = None
+                tile.frame.bind("<Button-1>", lambda e: None)
+                self.root.unbind("<Key>")
+                tile.label.update()
+                # logger.debug(f">>>UIManager::_on_game_over - Tile ({row}, {col}) updated to Game Over")
+        
+        logger.info("Game Over! You have made too many wrong moves!")
+       
     def start_game(self, board):
         """
         Start a new game by displaying the Sudoku board.
@@ -64,8 +85,11 @@ class UIManager(ControllerDependent):
         
         if event.char.isdigit() and '1' <= event.char <= '9':
             value = int(event.char)
-            self._handle_number_input(row, col, value)
-            is_valid_input = self.controller.is_valid_input(row, col, value)
+            is_game_over = self._handle_number_input(row, col, value)
+            if is_game_over:
+                self.on_game_over()
+            else:
+                is_valid_input = self.controller.is_valid_input(row, col, value)
         elif event.keysym in ('BackSpace', 'Delete'):
             self._handle_delete_input(row, col)
         else: 
@@ -74,24 +98,28 @@ class UIManager(ControllerDependent):
     def _handle_number_input(self, row, col, value):
         """
         Handle number input for the selected cell.
-        
         Args:
             row: Row index of the selected cell
             col: Column index of the selected cell
-            value: The number to input
-        """ 
+            value: The numeric value to input (1-9)
+        
+        Returns:
+            bool: True if the game is over, False otherwise
+        """
         logger.debug(f">>>UIManager::_handle_number_input - Inputting value {value} at ({row}, {col})")
         
         # Check if the input is valid
         if self.controller.is_valid_input(row, col, value):
             logger.debug(f">>>UIManager::_handle_number_input - Valid input: {value}")
             self.board.tiles[row][col].set_value(value)
-            self.controller.accumulate_moves(1)
+            correct_moves = self.controller.accumulate_moves(1)
         else:
             logger.warning(f">>>UIManager::_handle_number_input - Invalid input: {value}")
-            self.board.flash_cell(row, col, color="red", duration=500)
-            self.controller.accumulate_wrong_moves(1)
-
+            # Use the class constant for flash duration
+            self.board.flash_cell(row, col, color="red", duration=UIManager.FLASH_DURATION_MS)
+            wrong_moves = self.controller.accumulate_wrong_moves(1)
+        return self.controller.is_game_over()
+    
     def _handle_delete_input(self, row, col):   
         """
         Handle delete input for the selected cell.
@@ -363,7 +391,7 @@ class SudokuBoard:
                 if (r, c) != (row, col) and r != row and c != col and self.tiles[r][c].value == selected_value:
                     self.tiles[r][c].highlight(True, matching_blue)
     
-    def flash_cell(self, row, col, color="red", duration=500):
+    def flash_cell(self, row, col, color="red", duration=UIManager.FLASH_DURATION_MS):
         """
         Flash a cell with a color temporarily.
         

@@ -2,7 +2,6 @@ import logging
 from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
-
 class ControllerDependent(ABC):
     """
     Abstract base class for components that depend on a controller.
@@ -20,6 +19,7 @@ class ControllerDependent(ABC):
         """
         pass
 
+MAX_WRONG_MOVES = 3
 class GameController:
     def __init__(self, engine, uimanager):
         logger.debug(">>>GameController::init - Initializing GameController")
@@ -31,6 +31,7 @@ class GameController:
         self._solution = None
         self._moves_counter = 0
         self._wrong_moves_counter = 0
+        self._is_game_over = False
 
     def start_game(self):
         """
@@ -51,7 +52,33 @@ class GameController:
             return self._wrong_moves_counter
         logger.debug(f">>>GameController::accumulate_wrong_moves - Accumulating wrong moves: {value_to_accumulate}")
         self._wrong_moves_counter += value_to_accumulate
+
+        self._is_game_over = self._check_game_over()
+        
         return self._wrong_moves_counter
+    
+    def _check_game_over(self):
+        """
+        Check if the game is over based on the number of wrong moves.
+        
+        Returns:
+            bool: True if the game is over, False otherwise.
+        """
+        logger.debug(f">>>GameController::_check_game_over - Checking game over condition")
+        if self._wrong_moves_counter >= MAX_WRONG_MOVES:
+            self._is_game_over = True
+            return True
+        return False
+    
+    def is_game_over(self):
+        """
+        Check if the game is over.
+        
+        Returns:
+            bool: True if the game is over, False otherwise.
+        """
+        logger.debug(f">>>GameController::is_game_over - Checking if game is over")
+        return self._is_game_over
     
     def accumulate_moves(self,value_to_accumulate):
         """
