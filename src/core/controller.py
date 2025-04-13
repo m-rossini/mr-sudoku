@@ -35,12 +35,12 @@ class GameController:
         self._is_game_over = False
         self._notes_mode = False
 
-    def start_game(self):
+    def start_game(self, difficulty):
         """
         Start the game by generating a new Sudoku puzzle.
         """
         logger.debug(">>>GameController::start_game - Starting new game")
-        self._board, self._solution = self._engine.generator.generate(self._engine.get_current_difficulty())
+        self._board, self._solution = self._engine.generator.generate(difficulty)
         self._moves_counter = 0
         self._wrong_moves_counter = 0
         self._is_game_over = False

@@ -16,7 +16,6 @@ if __name__ == "__main__":
 
 from core.ui_components import UIManager
 from core.game import FixedBoardSudokuGenerator, SimpleSudokuSolver, GameEngine
-from core.difficulty import Difficulty
 from core.controller import GameController
 
 # Configure logging
@@ -86,11 +85,11 @@ def _initialize_components(root):
 
     generator = FixedBoardSudokuGenerator()
     solver = SimpleSudokuSolver()
-    engine = GameEngine(Difficulty.EASY, generator, solver)
+    engine = GameEngine(generator, solver)
     uimanager = UIManager(root, on_closing)  # Pass on_closing as a dependency
     controller = GameController(engine, uimanager)
 
-    controller.start_game()
+    controller.start_game(uimanager.get_difficulty())
     return controller
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ import tkinter as tk
 import logging
 from core.controller import ControllerDependent
 import time
+from core.difficulty import Difficulty
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +25,19 @@ class UIManager(ControllerDependent):
         self.main_frame = tk.Frame(root, padx=10, pady=10)
         self.main_frame.pack(expand=True, fill=tk.BOTH)
 
+        # Create a frame for the board and difficulty selector
+        self.board_frame = tk.Frame(self.main_frame)
+        self.board_frame.pack(side=tk.LEFT, padx=10, pady=10)
+
         # Create the Sudoku board
-        self.board = SudokuBoard(self.main_frame, self._on_tile_click)
-        self.board.frame.pack(side=tk.LEFT, padx=10, pady=10)
+        self.board = SudokuBoard(self.board_frame, self._on_tile_click)
+        self.board.frame.pack(side=tk.TOP, padx=10, pady=10)
+
+        # Create the difficulty selector
+        self.difficulty_selector = DifficultySelector(
+            self.board_frame, on_difficulty_change=self._on_difficulty_change
+        )
+        self.difficulty_selector.frame.pack(side=tk.TOP, pady=10)
 
         # Create the button panel
         self.button_panel = ButtonPanel(
@@ -173,6 +184,33 @@ class UIManager(ControllerDependent):
         """
         logger.info(">UIManager::_on_exit - Exiting the game")
         self.on_closing(self.root)  # Call the on_closing function
+
+    def get_difficulty(self):
+        """
+        Get the currently selected difficulty level from the difficulty selector.
+
+        Returns:
+            str: The selected difficulty level.
+        """
+        return self.difficulty_selector.get_difficulty()
+
+    def _on_difficulty_change(self, difficulty):
+        """
+        Handle difficulty change events.
+
+        Args:
+            difficulty: The new difficulty level selected.
+        """
+        logger.info(f">UIManager::_on_difficulty_change - Difficulty changed to {difficulty}")
+        # Ask the user in a message box if they want to start a new game since it changed the difficulty level
+        
+        if tk.messagebox.askyesno("Change Difficulty", "Changing difficulty will reset the game. Do you want to continue?"):
+            self.difficulty_selector._set_difficulty(Difficulty(difficulty))
+            self.controller.start_game(self.get_difficulty())
+        else:
+            logger.debug(f">>>UIManager::_on_difficulty_change - Not changing difficulty to: {difficulty}")
+            self.difficulty_selector.reset_difficulty()
+
 
 class SudokuTile:
     """A single tile/cell in the Sudoku grid."""
@@ -516,3 +554,64 @@ class ButtonPanel:
             self.frame, text="Exit", command=on_exit, width=15, height=2
         )
         self.exit_button.pack(pady=5)
+
+class DifficultySelector:
+    """
+    A frame containing a combo box for selecting the difficulty level.
+    """
+    def __init__(self, parent, on_difficulty_change):
+        """
+        Initialize the difficulty selector.
+
+        Args:
+            parent: The parent widget.
+            on_difficulty_change: Callback function for when the difficulty is changed.
+        """
+        logger.debug(">>>DifficultySelector::init - Initializing DifficultySelector")
+        self.frame = tk.Frame(parent, padx=10, pady=10)
+
+        # Label for the difficulty selector
+        self.label = tk.Label(self.frame, text="Select Difficulty:", font=("Arial", 12))
+        self.label.pack(side=tk.LEFT, padx=5)
+
+        # Combo box for difficulty selection
+        self.difficulty_var = tk.StringVar(value=Difficulty.MEDIUM.value)
+        self._previous_difficulty = Difficulty.MEDIUM.value
+        self._set_difficulty(Difficulty.MEDIUM)
+        self.combo_box = tk.OptionMenu(
+            self.frame,
+            self.difficulty_var,
+            *[difficulty.value for difficulty in Difficulty],
+            command=on_difficulty_change
+        )
+        self.combo_box.config(width=10)
+        self.combo_box.pack(side=tk.LEFT, padx=5)
+
+    def reset_difficulty(self):
+        """
+        Reset the difficulty level to the previous selection.
+        """
+        logger.debug(f">>>DifficultySelector::reset_difficulty - Resetting difficulty to {self._previous_difficulty}")
+        self.difficulty_var.set(self._previous_difficulty)
+        self._set_difficulty(Difficulty(self._previous_difficulty))
+
+    def _set_difficulty(self, difficulty):
+        """
+        Set the difficulty level in the combo box.
+
+        Args:
+            difficulty: The difficulty level to set.
+        """ 
+        logger.debug(f">>>DifficultySelector::set_difficulty - Setting difficulty to {difficulty}")
+        self.difficulty_var.set(difficulty.value)
+        self._previous_difficulty = difficulty.value
+
+    def get_difficulty(self):
+        """
+        Get the currently selected difficulty level.
+
+        Returns:
+            str: The selected difficulty level.
+        """
+        logger.debug(f">>>DifficultySelector::get_difficulty - Current difficulty: {self.difficulty_var.get()}")
+        return self.difficulty_var.get()
