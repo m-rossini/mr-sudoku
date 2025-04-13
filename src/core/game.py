@@ -13,6 +13,19 @@ class GameEngine(ControllerDependent):
         self.solver = solver
         self.difficulty = difficulty
 
+    def solve(self, board):
+        """
+        Solve the Sudoku puzzle.
+
+        Args:
+        board: The Sudoku board to be solved.
+
+        Returns:
+        List[List[int]]: The solved Sudoku board.
+        """
+        logger.debug(">>>GameEngine::solve - Solving the Sudoku puzzle")
+        return self.solver.solve(board)
+    
     def get_current_difficulty(self):
         """
         Get the current difficulty level.

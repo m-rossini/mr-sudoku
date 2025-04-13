@@ -80,14 +80,14 @@ def _initialize_components(root):
         root: The root window
         
     Returns:
-        GameEngine: The initialized game engine
+        GameController: The initialized game controller
     """
     logger.debug(">>>Main::initialize_components - Initializing components for the whole game")
 
     generator = FixedBoardSudokuGenerator()
     solver = SimpleSudokuSolver()
     engine = GameEngine(Difficulty.EASY, generator, solver)
-    uimanager = UIManager(root)
+    uimanager = UIManager(root, on_closing)  # Pass on_closing as a dependency
     controller = GameController(engine, uimanager)
 
     controller.start_game()

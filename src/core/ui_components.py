@@ -6,24 +6,49 @@ import time
 logger = logging.getLogger(__name__)
 
 class UIManager(ControllerDependent):
-    FLASH_DURATION_MS = 200  
-    def __init__(self, root):
+    FLASH_DURATION_MS = 200
+
+    def __init__(self, root, on_closing):
+        """
+        Initialize the UIManager.
+
+        Args:
+            root: The root Tkinter window.
+            on_closing: The function to handle the window close event.
+        """
         logger.debug(">>>UIManager::init - Initializing UIManager")
         self.root = root
-        
+        self.on_closing = on_closing  # Store the on_closing function
+
         # Main frame for all components
         self.main_frame = tk.Frame(root, padx=10, pady=10)
         self.main_frame.pack(expand=True, fill=tk.BOTH)
-        # Main frame for all components
-        self.main_frame = tk.Frame(root, padx=10, pady=10)
-        self.main_frame.pack(expand=True, fill=tk.BOTH)
-        
+
         # Create the Sudoku board
         self.board = SudokuBoard(self.main_frame, self._on_tile_click)
-        self.board.frame.pack(padx=10, pady=10)
-        
+        self.board.frame.pack(side=tk.LEFT, padx=10, pady=10)
+
+        # Create the button panel
+        self.button_panel = ButtonPanel(
+            self.main_frame,
+            on_new_game=self._on_new_game,
+            on_solve=self._on_solve,
+            on_exit=self._on_exit,
+        )
+        self.button_panel.frame.pack(side=tk.RIGHT, padx=10, pady=10)
+
         # Bind keyboard events to the root window
         self.root.bind("<Key>", self._on_key_press)
+
+    def start_game(self, board):
+        """
+        Start a new game by displaying the Sudoku board.
+        
+        Args:
+            board: The Sudoku board to display.
+        """
+        logger.debug(">>>UIManager::start_game - Starting new game")
+        self.board._create_board(board)
         
     def set_controller(self, controller):
         """
@@ -51,16 +76,6 @@ class UIManager(ControllerDependent):
         
         logger.info("Game Over! You have made too many wrong moves!")
        
-    def start_game(self, board):
-        """
-        Start a new game by displaying the Sudoku board.
-        
-        Args:
-            board: The Sudoku board to display.
-        """
-        logger.debug(">>>UIManager::start_game - Starting new game")
-        self.board._create_board(board)
-        
     def _on_tile_click(self, row, col):
         """Handle tile click events."""
         logger.debug(f">>>UIManager::_on_tile_click - Tile clicked at position ({row}, {col})")
@@ -137,6 +152,27 @@ class UIManager(ControllerDependent):
         self.board.clear_highlights()
         self.board.tiles[row][col].set_value(0)
         self.controller.set_board_value(row, col, 0)
+
+    def _on_new_game(self):
+        """
+        Handle the "New Game" button click.
+        """
+        logger.info(">UIManager::_on_new_game - Starting a new game")
+        self.controller.start_game()
+
+    def _on_solve(self):
+        """
+        Handle the "Solve" button click.
+        """
+        logger.info(">UIManager::_on_solve - Solving the puzzle")
+        self.controller.solve_puzzle()
+
+    def _on_exit(self):
+        """
+        Handle the "Exit" button click.
+        """
+        logger.info(">UIManager::_on_exit - Exiting the game")
+        self.on_closing(self.root)  # Call the on_closing function
 
 class SudokuTile:
     """A single tile/cell in the Sudoku grid."""
@@ -427,3 +463,56 @@ class SudokuBoard:
             tuple: (row, col) or None if no cell is selected
         """
         return self.selected_pos
+
+    def clear_highlights(self):
+        """
+        Clear all highlights on the board.
+        """
+        logger.debug(">>>SudokuBoard::clear_highlights - Clearing all highlights")
+        for row in range(9):
+            for col in range(9):
+                self.tiles[row][col].highlight(False)    
+    
+    def get_selected_position(self):
+        """
+        Get the currently selected position.
+        
+        Returns:
+            tuple: (row, col) or None if no cell is selected
+        """
+        return self.selected_pos
+
+class ButtonPanel:
+    """
+    A panel containing buttons for starting a new game, solving the puzzle, and exiting the game.
+    """
+    def __init__(self, parent, on_new_game, on_solve, on_exit):
+        """
+        Initialize the button panel.
+
+        Args:
+            parent: The parent widget.
+            on_new_game: Callback function for the "New Game" button.
+            on_solve: Callback function for the "Solve" button.
+            on_exit: Callback function for the "Exit" button.
+        """
+        logger.debug(">>>ButtonPanel::init - Initializing ButtonPanel")
+        self.frame = tk.Frame(parent, padx=10, pady=10)
+
+        # Create the "New Game" button
+        self.new_game_button = tk.Button(
+            self.frame, text="New Game", command=on_new_game, width=15, height=2
+        )
+        self.new_game_button.pack(pady=5)
+
+        # Create the "Solve" button
+        self.solve_button = tk.Button(
+            self.frame, text="Solve", command=on_solve, width=15, height=2
+        )
+        self.solve_button.pack(pady=5)
+
+        # Create the "Exit" button
+        self.exit_button = tk.Button(
+            self.frame, text="Exit", command=on_exit, width=15, height=2
+        )
+        self.exit_button.pack(pady=5)

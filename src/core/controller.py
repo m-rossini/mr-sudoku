@@ -27,6 +27,7 @@ class GameController:
         self._uimanager = uimanager
         self._engine.set_controller(self)
         self._uimanager.set_controller(self)
+
         self._board = None
         self._solution = None
         self._moves_counter = 0
@@ -40,6 +41,11 @@ class GameController:
         """
         logger.debug(">>>GameController::start_game - Starting new game")
         self._board, self._solution = self._engine.generator.generate(self._engine.get_current_difficulty())
+        self._moves_counter = 0
+        self._wrong_moves_counter = 0
+        self._is_game_over = False
+        self._notes_mode = False
+        
         self._uimanager.start_game(self._board)
         return
 
@@ -108,3 +114,13 @@ class GameController:
         """
         logger.debug(f">>>GameController::set_board_value - Setting board value at ({row}, {col}): {value}")
         self._board[row][col] = value
+
+    def solve_puzzle(self):
+        """
+        Solve the Sudoku puzzle.
+        
+        Returns:
+            list: The solved Sudoku board.
+        """
+        logger.debug(">>>GameController::solve_puzzle - Solving puzzle")
+        return self._engine.solve(self._board)
