@@ -40,6 +40,26 @@ class GameEngine(ControllerDependent):
         self._board, self._solution = self.generator.generate(self.difficulty)
         return self._board, self._solution
 
+    def is_input_correct(self, _solution, row, col, value):
+        """
+        Check if the input value is correct for the given position.
+
+        Args:
+                _solution: The solution board.
+                row: The row index.
+                col: The column index.
+                value: The value to be checked.
+
+        Returns:
+                bool: True if the input is correct, False otherwise.
+        """
+        logger.debug(f">>>GameEngine::is_input_correct - Checking input correctness at ({row}, {col}): {value}")
+        if _solution[row][col] == value:
+                return True
+        else:
+                return False
+
+
     def can_input(self, _board, row, col, value):
         """
         Check if a value can be input at the specified position.
@@ -53,7 +73,7 @@ class GameEngine(ControllerDependent):
                 bool: True if the input is valid, False otherwise.
         """
         logger.debug(f">>>GameEngine::can_input - Checking input validity at ({row}, {col}): {value}")
-        logger.debug(f">>>>GameEngine::can_input. Board:{_board}")        # Check if the value is valid in the current board state
+
         if _board[row][col] == 0:
             # Check if the value is not already in the same row
             for i in range(9):
@@ -82,7 +102,7 @@ class GameEngine(ControllerDependent):
         else:
             logger.debug(f">>>GameEngine::can_input - Cell at ({row}, {col}) is not empty")
             return False
-
+    
 
 class SudokuSolver(ABC):
     """Abstract base class for Sudoku puzzle generators."""

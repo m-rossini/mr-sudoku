@@ -32,6 +32,7 @@ class GameController:
         self._moves_counter = 0
         self._wrong_moves_counter = 0
         self._is_game_over = False
+        self._notes_mode = False
 
     def start_game(self):
         """
@@ -44,7 +45,10 @@ class GameController:
 
     def is_valid_input(self, row, col, value):
         logger.debug(f">>>GameController::handle_key_input - Key input at ({row}, {col}): {value}")
-        return self._engine.can_input(self._board, row, col, value)
+        if self._notes_mode:
+            return self._engine.can_input(self._board, row, col, value)
+        else:
+            return self._engine.is_input_correct(self._solution, row, col, value)
     
     def accumulate_wrong_moves(self, value_to_accumulate):
         if value_to_accumulate < 0:
