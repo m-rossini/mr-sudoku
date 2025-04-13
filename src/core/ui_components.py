@@ -113,6 +113,7 @@ class UIManager(ControllerDependent):
         if self.controller.is_valid_input(row, col, value):
             logger.debug(f">>>UIManager::_handle_number_input - Valid input: {value}")
             self.board.tiles[row][col].set_value(value)
+            self.controller.set_board_value(row, col, value)
             correct_moves = self.controller.accumulate_moves(1)
         else:
             logger.warning(f">>>UIManager::_handle_number_input - Invalid input: {value}")
@@ -131,6 +132,8 @@ class UIManager(ControllerDependent):
         """
         logger.debug(f">>>UIManager::_handle_delete_input - Deleting value at ({row}, {col})")
         self.board.clear_highlights()
+        self.board.tiles[row][col].set_value(0)
+        self.controller.set_board_value(row, col, 0)
 
 class SudokuTile:
     """A single tile/cell in the Sudoku grid."""

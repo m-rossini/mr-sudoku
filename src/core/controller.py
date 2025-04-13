@@ -77,7 +77,7 @@ class GameController:
         Returns:
             bool: True if the game is over, False otherwise.
         """
-        logger.debug(f">>>GameController::is_game_over - Checking if game is over")
+        logger.debug(f">>>GameController::is_game_over - Checking if game is over: {self._is_game_over}")
         return self._is_game_over
     
     def accumulate_moves(self,value_to_accumulate):
@@ -92,3 +92,15 @@ class GameController:
         logger.debug(f">>>GameController::accumulate_moves - Accumulating moves: {value_to_accumulate}")
         self._moves_counter += value_to_accumulate
         return self._moves_counter
+    
+    def set_board_value(self, row, col, value):
+        """
+        Set the value of a cell in the board.
+        
+        Args:
+            row: The row index.
+            col: The column index.
+            value: The value to set.
+        """
+        logger.debug(f">>>GameController::set_board_value - Setting board value at ({row}, {col}): {value}")
+        self._board[row][col] = value

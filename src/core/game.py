@@ -53,8 +53,7 @@ class GameEngine(ControllerDependent):
                 bool: True if the input is valid, False otherwise.
         """
         logger.debug(f">>>GameEngine::can_input - Checking input validity at ({row}, {col}): {value}")
-
-        # Check if the value is valid in the current board state
+        logger.debug(f">>>>GameEngine::can_input. Board:{_board}")        # Check if the value is valid in the current board state
         if _board[row][col] == 0:
             # Check if the value is not already in the same row
             for i in range(9):
