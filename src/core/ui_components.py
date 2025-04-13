@@ -1,21 +1,54 @@
 import tkinter as tk
 import logging
 from core.controller import ControllerDependent
+import time
 
 logger = logging.getLogger(__name__)
 
 class UIManager(ControllerDependent):
-    def __init__(self, root):
+    FLASH_DURATION_MS = 200
+
+    def __init__(self, root, on_closing):
+        """
+        Initialize the UIManager.
+
+        Args:
+            root: The root Tkinter window.
+            on_closing: The function to handle the window close event.
+        """
         logger.debug(">>>UIManager::init - Initializing UIManager")
         self.root = root
-        
+        self.on_closing = on_closing  # Store the on_closing function
+
         # Main frame for all components
         self.main_frame = tk.Frame(root, padx=10, pady=10)
         self.main_frame.pack(expand=True, fill=tk.BOTH)
-        
+
         # Create the Sudoku board
         self.board = SudokuBoard(self.main_frame, self._on_tile_click)
-        self.board.frame.pack(padx=10, pady=10)
+        self.board.frame.pack(side=tk.LEFT, padx=10, pady=10)
+
+        # Create the button panel
+        self.button_panel = ButtonPanel(
+            self.main_frame,
+            on_new_game=self._on_new_game,
+            on_solve=self._on_solve,
+            on_exit=self._on_exit,
+        )
+        self.button_panel.frame.pack(side=tk.RIGHT, padx=10, pady=10)
+
+        # Bind keyboard events to the root window
+        self.root.bind("<Key>", self._on_key_press)
+
+    def start_game(self, board):
+        """
+        Start a new game by displaying the Sudoku board.
+        
+        Args:
+            board: The Sudoku board to display.
+        """
+        logger.debug(">>>UIManager::start_game - Starting new game")
+        self.board._create_board(board)
         
     def set_controller(self, controller):
         """
@@ -27,20 +60,120 @@ class UIManager(ControllerDependent):
         logger.debug(">>>UIManager::set_controller - Setting controller")
         self.controller = controller
     
-    def start_game(self, board):
-        """
-        Start a new game by displaying the Sudoku board.
+    def on_game_over(self):
+        logger.debug(">>>UIManager::_on_game_over - Game over")
+        time.sleep(UIManager.FLASH_DURATION_MS/1000)
+        for row in range(9):
+            for col in range(9):
+                tile = self.board.tiles[row][col]
+                tile.label.config(bg="grey")
+                tile.label.unbind("<Button-1>")
+                tile.frame.unbind("<Button-1>")
+                tile.on_click = None
+                tile.frame.bind("<Button-1>", lambda e: None)
+                self.root.unbind("<Key>")
+                tile.label.update()
         
-        Args:
-            board: The Sudoku board to display.
-        """
-        logger.debug(">>>UIManager::start_game - Starting new game")
-        self.board._create_board(board)
-        
+        logger.info("Game Over! You have made too many wrong moves!")
+       
     def _on_tile_click(self, row, col):
         """Handle tile click events."""
         logger.debug(f">>>UIManager::_on_tile_click - Tile clicked at position ({row}, {col})")
     
+    def _on_key_press(self, event):
+        """
+        Handle key press events.
+        
+        Args:
+            event: The key event object
+        """
+        logger.debug(f">>>UIManager::_on_key_press - Key pressed: {event.keysym}, char: {event.char}")
+        
+        # Get the currently selected cell, if any
+        selected_pos = self.board.get_selected_position()
+        if not selected_pos:
+            logger.debug(">>>UIManager::_on_key_press - No cell selected, ignoring key press")
+            return
+            
+        row, col = selected_pos
+        logger.debug(f">>>UIManager::_on_key_press - Selected cell: ({row}, {col})")
+        #check if tile is fixed
+        if self.board.tiles[row][col].is_fixed:
+            logger.debug(f">>>UIManager::_on_key_press - Selected cell is fixed, ignoring key press")
+            return
+        
+        if event.char.isdigit() and '1' <= event.char <= '9':
+            value = int(event.char)
+            is_game_over = self._handle_number_input(row, col, value)
+            if is_game_over:
+                self.on_game_over()
+            else:
+                is_valid_input = self.controller.is_valid_input(row, col, value)
+        elif event.keysym in ('BackSpace', 'Delete'):
+            self._handle_delete_input(row, col)
+        else: 
+            logger.info(f">UIManager::_on_key_press - Not supported key: {event.keysym}")
+
+    def _handle_number_input(self, row, col, value):
+        """
+        Handle number input for the selected cell.
+        Args:
+            row: Row index of the selected cell
+            col: Column index of the selected cell
+            value: The numeric value to input (1-9)
+        
+        Returns:
+            bool: True if the game is over, False otherwise
+        """
+        logger.debug(f">>>UIManager::_handle_number_input - Inputting value {value} at ({row}, {col})")
+        
+        # Check if the input is valid
+        if self.controller.is_valid_input(row, col, value):
+            logger.debug(f">>>UIManager::_handle_number_input - Valid input: {value}")
+            self.board.tiles[row][col].set_value(value)
+            self.controller.set_board_value(row, col, value)
+            correct_moves = self.controller.accumulate_moves(1)
+        else:
+            logger.warning(f">>>UIManager::_handle_number_input - Invalid input: {value}")
+            # Use the class constant for flash duration
+            self.board.flash_cell(row, col, color="red", duration=UIManager.FLASH_DURATION_MS)
+            wrong_moves = self.controller.accumulate_wrong_moves(1)
+        return self.controller.is_game_over()
+    
+    def _handle_delete_input(self, row, col):   
+        """
+        Handle delete input for the selected cell.
+        
+        Args:
+            row: Row index of the selected cell
+            col: Column index of the selected cell
+        """
+        logger.debug(f">>>UIManager::_handle_delete_input - Deleting value at ({row}, {col})")
+        self.board.clear_highlights()
+        self.board.tiles[row][col].set_value(0)
+        self.controller.set_board_value(row, col, 0)
+
+    def _on_new_game(self):
+        """
+        Handle the "New Game" button click.
+        """
+        logger.info(">UIManager::_on_new_game - Starting a new game")
+        self.controller.start_game()
+
+    def _on_solve(self):
+        """
+        Handle the "Solve" button click.
+        """
+        logger.info(">UIManager::_on_solve - Solving the puzzle")
+        self.controller.solve_puzzle()
+
+    def _on_exit(self):
+        """
+        Handle the "Exit" button click.
+        """
+        logger.info(">UIManager::_on_exit - Exiting the game")
+        self.on_closing(self.root)  # Call the on_closing function
+
 class SudokuTile:
     """A single tile/cell in the Sudoku grid."""
     
@@ -158,7 +291,7 @@ class SudokuTile:
             else:
                 self.label.config(bg="white")    # White for regular cells
     
-    def flash(self, color="red", duration=500):
+    def flash(self, color="red", duration=UIManager.FLASH_DURATION_MS):
         """
         Flash the tile with a color temporarily.
         
@@ -301,7 +434,7 @@ class SudokuBoard:
                 if (r, c) != (row, col) and r != row and c != col and self.tiles[r][c].value == selected_value:
                     self.tiles[r][c].highlight(True, matching_blue)
     
-    def flash_cell(self, row, col, color="red", duration=500):
+    def flash_cell(self, row, col, color="red", duration=UIManager.FLASH_DURATION_MS):
         """
         Flash a cell with a color temporarily.
         
@@ -313,6 +446,15 @@ class SudokuBoard:
         """
         self.tiles[row][col].flash(color, duration)
     
+    def clear_highlights(self):
+        """
+        Clear all highlights on the board.
+        """
+        logger.debug(">>>SudokuBoard::clear_highlights - Clearing all highlights")
+        for row in range(9):
+            for col in range(9):
+                self.tiles[row][col].highlight(False)    
+    
     def get_selected_position(self):
         """
         Get the currently selected position.
@@ -321,3 +463,56 @@ class SudokuBoard:
             tuple: (row, col) or None if no cell is selected
         """
         return self.selected_pos
+
+    def clear_highlights(self):
+        """
+        Clear all highlights on the board.
+        """
+        logger.debug(">>>SudokuBoard::clear_highlights - Clearing all highlights")
+        for row in range(9):
+            for col in range(9):
+                self.tiles[row][col].highlight(False)    
+    
+    def get_selected_position(self):
+        """
+        Get the currently selected position.
+        
+        Returns:
+            tuple: (row, col) or None if no cell is selected
+        """
+        return self.selected_pos
+
+class ButtonPanel:
+    """
+    A panel containing buttons for starting a new game, solving the puzzle, and exiting the game.
+    """
+    def __init__(self, parent, on_new_game, on_solve, on_exit):
+        """
+        Initialize the button panel.
+
+        Args:
+            parent: The parent widget.
+            on_new_game: Callback function for the "New Game" button.
+            on_solve: Callback function for the "Solve" button.
+            on_exit: Callback function for the "Exit" button.
+        """
+        logger.debug(">>>ButtonPanel::init - Initializing ButtonPanel")
+        self.frame = tk.Frame(parent, padx=10, pady=10)
+
+        # Create the "New Game" button
+        self.new_game_button = tk.Button(
+            self.frame, text="New Game", command=on_new_game, width=15, height=2
+        )
+        self.new_game_button.pack(pady=5)
+
+        # Create the "Solve" button
+        self.solve_button = tk.Button(
+            self.frame, text="Solve", command=on_solve, width=15, height=2
+        )
+        self.solve_button.pack(pady=5)
+
+        # Create the "Exit" button
+        self.exit_button = tk.Button(
+            self.frame, text="Exit", command=on_exit, width=15, height=2
+        )
+        self.exit_button.pack(pady=5)
