@@ -7,11 +7,10 @@ logger = logging.getLogger(__name__)
 
 
 class GameEngine(ControllerDependent):
-    def __init__(self, difficulty, generator, solver):
+    def __init__(self, generator, solver):
         logger.debug(">>>GameEngine::init - Initializing GameEngine")
         self.generator = generator
         self.solver = solver
-        self.difficulty = difficulty
 
     def solve(self, board):
         """
@@ -26,15 +25,6 @@ class GameEngine(ControllerDependent):
         logger.debug(">>>GameEngine::solve - Solving the Sudoku puzzle")
         return self.solver.solve(board)
     
-    def get_current_difficulty(self):
-        """
-        Get the current difficulty level.
-
-        Returns:
-        Difficulty: The current difficulty level.
-        """
-        return self.difficulty
-
     def set_controller(self, controller):
         """
         Set the controller for this GameEngine.
@@ -45,12 +35,12 @@ class GameEngine(ControllerDependent):
         logger.debug(">>>GameEngine::set_controller - Setting controller")
         self.controller = controller
 
-    def start_game(self):
+    def start_game(self, difficulty):
         """
         Start the game by generating a new Sudoku puzzle.
         """
         logger.debug(">>>GameEngine::start_game - Starting new game")
-        self._board, self._solution = self.generator.generate(self.difficulty)
+        self._board, self._solution = self.generator.generate(difficulty)
         return self._board, self._solution
 
     def is_input_correct(self, _solution, row, col, value):
@@ -151,6 +141,8 @@ class FixedBoardSudokuGenerator(SudokuGenerator):
 
     def generate(self, difficulty: str) -> tuple[List[List[int]], List[List[int]]]:
         """Generate a new Sudoku puzzle based on the difficulty."""
+
+        logger.debug(f">>>FixedBoardSudokuGenerator::generate - Generating Sudoku puzzle with difficulty: {difficulty}")
         unsolved_board = [
             [3, 0, 6, 5, 0, 8, 4, 0, 0],
             [5, 2, 0, 0, 0, 0, 0, 0, 0],
