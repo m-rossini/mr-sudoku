@@ -48,7 +48,6 @@ class UIManager(ControllerDependent):
                 tile.frame.bind("<Button-1>", lambda e: None)
                 self.root.unbind("<Key>")
                 tile.label.update()
-                # logger.debug(f">>>UIManager::_on_game_over - Tile ({row}, {col}) updated to Game Over")
         
         logger.info("Game Over! You have made too many wrong moves!")
        
@@ -83,6 +82,10 @@ class UIManager(ControllerDependent):
             
         row, col = selected_pos
         logger.debug(f">>>UIManager::_on_key_press - Selected cell: ({row}, {col})")
+        #check if tile is fixed
+        if self.board.tiles[row][col].is_fixed:
+            logger.debug(f">>>UIManager::_on_key_press - Selected cell is fixed, ignoring key press")
+            return
         
         if event.char.isdigit() and '1' <= event.char <= '9':
             value = int(event.char)
