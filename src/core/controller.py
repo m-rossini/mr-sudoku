@@ -34,6 +34,7 @@ class GameController:
         self._wrong_moves_counter = 0
         self._is_game_over = False
         self._notes_mode = False
+        self._counts = {i: 0 for i in range(1, 10)}  # Initialize counts for numbers 1-9
 
     def start_game(self, difficulty):
         """
@@ -66,6 +67,51 @@ class GameController:
         self._is_game_over = self._check_game_over()
         
         return self._wrong_moves_counter
+    
+    def numbers_placed_on_board(self, board):
+        """
+        Count how many of each number are already placed on the board.
+        
+        Args:
+            board: The current Sudoku board
+            
+        Returns:
+            dict: A dictionary mapping numbers to their occurrence counts
+        """
+        for row in range(9):
+            for col in range(9):
+                value = board[row][col]
+                if value != 0:
+                    self._counts[value] = self._counts.get(value, 0) + 1
+        return self._counts
+
+    def place_number(self, number):
+        """
+        Update the counts to be shown in the number panel. another number has been placed.
+        Args:
+            number: The number to be placed.        
+        """
+        logger.debug(f">>>GameController::place_number - Placing number: {number}")
+        if number in self._counts:
+            self._counts[number] += 1
+        else:
+            self._counts[number] = 0
+
+        return self._counts
+    
+    def unplace_number(self, number):
+        """
+        Update the counts to be shown in the number panel. another number has been unplaced.
+        Args:
+            number: The number to be unplaced.        
+        """
+        logger.debug(f">>>GameController::unplace_number - Unplacing number: {number}")
+        if number in self._counts:
+            self._counts[number] -= 1
+        else:
+            self._counts[number] = 0
+
+        return self._counts
     
     def _check_game_over(self):
         """
