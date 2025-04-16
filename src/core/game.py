@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 from core.controller import ControllerDependent
+from core.difficulty import Difficulty
 import logging
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ class GameEngine(ControllerDependent):
                 bool: True if the input is correct, False otherwise.
         """
         logger.debug(f">>>GameEngine::is_input_correct - Checking input correctness at ({row}, {col}): {value}")
+        logger.debug(f">>>GameEngine::is_input_correct - Solution board: {_solution}")
         if _solution[row][col] == value:
                 return True
         else:
@@ -143,28 +145,71 @@ class FixedBoardSudokuGenerator(SudokuGenerator):
         """Generate a new Sudoku puzzle based on the difficulty."""
 
         logger.debug(f">>>FixedBoardSudokuGenerator::generate - Generating Sudoku puzzle with difficulty: {difficulty}")
-        unsolved_board = [
-            [3, 0, 6, 5, 0, 8, 4, 0, 0],
-            [5, 2, 0, 0, 0, 0, 0, 0, 0],
-            [0, 8, 7, 0, 0, 0, 0, 3, 1],
-            [0, 0, 3, 0, 1, 0, 0, 8, 0],
-            [9, 0, 0, 8, 6, 3, 0, 0, 5],
-            [0, 5, 0, 0, 9, 0, 6, 0, 0],
-            [1, 3, 0, 0, 0, 0, 2, 5, 0],
-            [0, 0, 0, 0, 0, 0, 0, 7, 4],
-            [0, 0, 5, 2, 0, 6, 3, 0, 0],
+        unsolved_easy = [
+                [5, 3, 0, 0, 7, 0, 0, 0, 0],
+                [6, 0, 0, 1, 9, 5, 0, 0, 0],
+                [0, 9, 8, 0, 0, 0, 0, 6, 0],
+                [8, 0, 0, 0, 6, 0, 0, 0, 3],
+                [4, 0, 0, 8, 0, 3, 0, 0, 1],
+                [7, 0, 0, 0, 2, 0, 0, 0, 6],
+                [0, 6, 0, 0, 0, 0, 2, 8, 0],
+                [0, 0, 0, 4, 1, 9, 0, 0, 5],
+                [0, 0, 0, 0, 8, 0, 0, 7, 9],
+        ]
+        unsolved_medium = [
+                [5, 0, 0, 0, 7, 0, 0, 0, 0],
+                [6, 0, 0, 1, 0, 0, 0, 0, 0],
+                [0, 9, 8, 0, 0, 0, 0, 6, 0],
+                [0, 0, 0, 0, 6, 0, 0, 0, 3],
+                [4, 0, 0, 0, 0, 3, 0, 0, 1],
+                [0, 0, 0, 0, 2, 0, 0, 0, 0],
+                [0, 6, 0, 0, 0, 0, 2, 8, 0],
+                [0, 0, 0, 4, 0, 9, 0, 0, 5],
+                [0, 0, 0, 0, 8, 0, 0, 7, 0],
+        ]
+        unsolved_hard = [
+                [0, 0, 0, 0, 7, 0, 0, 0, 0],
+                [6, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 9, 0, 0, 0, 0, 0, 6, 0],
+                [0, 0, 0, 0, 6, 0, 0, 0, 3],
+                [0, 0, 0, 0, 0, 3, 0, 0, 0],
+                [0, 0, 0, 0, 2, 0, 0, 0, 6],
+                [0, 6, 0, 0, 0, 0, 2, 0, 0],
+                [0, 0, 0, 4, 0, 9, 0, 0, 0],
+                [0, 0, 0, 0, 8, 0, 0, 7, 9],
+        ]
+        unsolved_expert = [
+                [0, 0, 0, 0, 7, 0, 0, 0, 0],
+                [6, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 9, 0, 0, 0, 0, 0, 6, 0],
+                [0, 0, 0, 0, 6, 0, 0, 0, 3],
+                [0, 0, 0, 0, 0, 3, 0, 0, 0],
+                [0, 0, 0, 0, 2, 0, 0, 0, 6],
+                [0, 6, 0, 0, 0, 0, 2, 0, 0],
+                [0, 0, 0, 4, 0, 9, 0, 0, 0],
+                [0, 0, 0, 0, 8, 0, 0, 7, 9],
         ]
 
         solved_board = [
-            [3, 1, 6, 5, 7, 8, 4, 9, 2],
-            [5, 2, 9, 1, 3, 4, 7, 6, 8],
-            [4, 8, 7, 6, 2, 9, 1, 3, 5],
-            [2, 6, 3, 4, 1, 5, 9, 8, 7],
-            [9, 7, 4, 8, 6, 3, 2, 1, 5],
-            [8, 5, 1, 7, 9, 2, 6, 4, 3],
-            [1, 3, 8, 9, 4, 7, 2, 5, 6],
-            [6, 9, 2, 3, 5, 1, 8, 7, 4],
-            [7, 4, 5, 2, 8, 6, 3, 1, 9],
+                [5, 3, 4, 6, 7, 8, 9, 1, 2],
+                [6, 7, 2, 1, 9, 5, 3, 4, 8],
+                [1, 9, 8, 3, 4, 2, 5, 6, 7],
+                [8, 5, 9, 7, 6, 1, 4, 2, 3],
+                [4, 2, 6, 8, 5, 3, 7, 9, 1],
+                [7, 1, 3, 9, 2, 4, 8, 5, 6],
+                [9, 6, 1, 5, 3, 7, 2, 8, 4],
+                [2, 8, 7, 4, 1, 9, 6, 3, 5],
+                [3, 4, 5, 2, 8, 6, 1, 7, 9],
         ]
-
-        return (unsolved_board, solved_board)
+        
+        if difficulty.upper() == Difficulty.EXPERT.value.upper():
+            return (unsolved_expert, solved_board)
+        elif difficulty.upper() == Difficulty.HARD.value.upper():
+            return (unsolved_hard, solved_board)
+        elif difficulty.upper() == Difficulty.MEDIUM.value.upper():
+            return (unsolved_medium, solved_board)
+        elif difficulty.upper() == Difficulty.EASY.value.upper():
+            return (unsolved_easy, solved_board)
+        else:
+             logger.info(f">>>FixedBoardSudokuGenerator::generate - Invalid difficulty level: {difficulty}. Defaulting to Medium.")
+             return

@@ -211,7 +211,7 @@ class UIManager(ControllerDependent):
         Handle the "New Game" button click.
         """
         logger.info(">UIManager::_on_new_game - Starting a new game")
-        self.controller.start_game()
+        self.controller.start_game(self.difficulty_selector.get_difficulty())
 
     def _on_solve(self):
         """
@@ -590,6 +590,7 @@ class ButtonPanel:
             on_exit: Callback function for the "Exit" button.
         """
         logger.debug(">>>ButtonPanel::init - Initializing ButtonPanel")
+
         self.frame = tk.Frame(parent, padx=10, pady=10)
 
         # Create the "New Game" button
@@ -668,9 +669,6 @@ class DifficultySelector:
         Returns:
             str: The selected difficulty level.
         """
-        logger.debug(f">>>DifficultySelector::get_difficulty - Current difficulty: {self.difficulty_var.get()}")
-        return self.difficulty_var.get()
-
         logger.debug(f">>>DifficultySelector::get_difficulty - Current difficulty: {self.difficulty_var.get()}")
         return self.difficulty_var.get()
 
@@ -794,7 +792,11 @@ class NumberPanel:
         Update the number panel with the current numbers.
 
         Args:
-            numbers: A list of numbers to display.
+            numbers: A dictionary with keys from 1 to 9 and their respective counts.
+        9 is the maximum number of times a number can be placed.
+        0 is the minimum number of times a number can be placed.
+        9 - count is the number of times this number has been placed.
+        0 - count is the number of times this number has not been placed.
         """
         logger.debug(f">>>NumberPanel::update_all_numbers - Updating all numbers: {numbers}")
         for number in range(1, 10):
@@ -808,33 +810,33 @@ class NumberPanel:
             number: The number to update.
             count: The number of times this number has been placed.
         """
-        logger.debug(f">>>NumberPanel::update_number_count - Updating count for number {number} to {count}")
         if number in self.panels:
-            # Calculate remaining count (9 - placed)
-            remaining = 9 - count
+            if count < 0:
+                count = 0
+            elif count > 9:
+                count = 9
+        # Calculate remaining count (9 - placed)
+        remaining = 9 - count
             
-            logger.debug(f">>>NumberPanel::update_number_count - Setting number {number} remaining to {remaining}")
+        components = self.panels[number]
+        frame = components["frame"]
+        label = components["label"]
             
-            components = self.panels[number]
-            frame = components["frame"]
-            label = components["label"]
+        # Set text with remaining count
+        label.config(text=f"{number}\n({remaining})")
             
-            # Set text with remaining count
-            label.config(text=f"{number}\n({remaining})")
-            
-            # Enable/disable based on remaining count
-            if remaining <= 0:
-                # Disable the panel - gray it out
-                frame.config(bg="#f0f0f0")  # Light gray
-                label.config(bg="#f0f0f0", fg="#a0a0a0")  # Gray text on light gray background
-                self.panels[number]["enabled"] = False
-            else:
-                # Enable the panel - white background with black text
-                frame.config(bg="white")
-                label.config(bg="white", fg="black")
-                self.panels[number]["enabled"] = True
+        if remaining <= 0:
+            # Disable the panel - gray it out
+            frame.config(bg="#f0f0f0")  # Light gray
+            label.config(bg="#f0f0f0", fg="#a0a0a0")  # Gray text on light gray background
+            self.panels[number]["enabled"] = False
+        else:
+            # Enable the panel - white background with black text
+            frame.config(bg="white")
+            label.config(bg="white", fg="black")
+            self.panels[number]["enabled"] = True
                 
-            # Force update
-            label.update()
-            frame.update()
+        # Force update
+        label.update()
+        frame.update()
 

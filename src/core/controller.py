@@ -78,6 +78,7 @@ class GameController:
         Returns:
             dict: A dictionary mapping numbers to their occurrence counts
         """
+        self._counts = {i: 0 for i in range(1, 10)}  # Reset counts
         for row in range(9):
             for col in range(9):
                 value = board[row][col]
@@ -91,13 +92,7 @@ class GameController:
         Args:
             number: The number to be placed.        
         """
-        logger.debug(f">>>GameController::place_number - Placing number: {number}")
-        if number in self._counts:
-            self._counts[number] += 1
-        else:
-            self._counts[number] = 0
-
-        return self._counts
+        return self.update_counts(number, +1)
     
     def unplace_number(self, number):
         """
@@ -105,11 +100,20 @@ class GameController:
         Args:
             number: The number to be unplaced.        
         """
-        logger.debug(f">>>GameController::unplace_number - Unplacing number: {number}")
+        return self.update_counts(number, -1)
+    
+    def update_counts(self, number, value):
+        """
+        Update the counts to be shown in the number panel.
+        Args:
+            number: The number to be updated.
+            value: The value to add or subtract from the count.
+        """
+        logger.debug(f">>>GameController::update_counts - Updating counts for number {number} by {value}")
         if number in self._counts:
-            self._counts[number] -= 1
+            self._counts[number] += value
         else:
-            self._counts[number] = 0
+            self._counts[number] = value
 
         return self._counts
     
