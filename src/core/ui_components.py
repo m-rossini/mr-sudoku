@@ -188,7 +188,8 @@ class UIManager(ControllerDependent):
         else:
             logger.warning(f">>>UIManager::_handle_number_input - Invalid input: {value}")
             # Use the class constant for flash duration
-            self.board.flash_cell(row, col, color="red", duration=UIManager.FLASH_DURATION_MS)
+            self.board.tiles[row][col].set_wrong_value(value)
+            self.controller.set_board_value(row, col, value)
             wrong_moves = self.controller.accumulate_wrong_moves(1)
 
         return is_valid
@@ -347,6 +348,18 @@ class SudokuTile:
             # User-entered or empty values have blue text on white background
             self.label.config(fg="blue", bg="white")
     
+    def set_wrong_value(self, value):
+        """
+        Set the tile's value to a wrong value and update its appearance.
+        
+        Args:
+            value: The numeric value (0 for empty)
+        """
+        self.value = value
+        self.label.config(text=str(value))
+        self.flash(color="red", duration=UIManager.FLASH_DURATION_MS)
+        self.label.config(fg="red", bg="white")
+
     def select(self, selected=True):
         """
         Select or deselect this tile.
