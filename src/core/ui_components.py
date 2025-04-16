@@ -25,32 +25,63 @@ class UIManager(ControllerDependent):
         self.main_frame = tk.Frame(root, padx=10, pady=10)
         self.main_frame.pack(expand=True, fill=tk.BOTH)
 
-        # Create a frame for the board and difficulty selector
+        # Create a frame for the board
         self.board_frame = tk.Frame(self.main_frame)
         self.board_frame.pack(side=tk.LEFT, padx=10, pady=10)
 
         # Create the Sudoku board
         self.board = SudokuBoard(self.board_frame, self._on_tile_click)
         self.board.frame.pack(side=tk.TOP, padx=10, pady=10)
+        
+        # Create the number panel
+        self.number_panel = NumberPanel(self.board_frame, self._on_number_click)
+        # Pack with exact dimensions to match board width
+        self.number_panel.frame.pack(side=tk.TOP, pady=5, fill=None, expand=False)
+        
+        # Use a larger delay to ensure the board has fully rendered
+        self.root.update_idletasks()
+        self.root.after(300, self._adjust_number_panel_width)
+
+        # Create a frame for the control area (difficulty selector + buttons)
+        self.control_frame = tk.Frame(self.main_frame)
+        self.control_frame.pack(side=tk.RIGHT, padx=10, pady=10)
 
         # Create the difficulty selector
         self.difficulty_selector = DifficultySelector(
-            self.board_frame, on_difficulty_change=self._on_difficulty_change
+            self.control_frame, on_difficulty_change=self._on_difficulty_change
         )
         self.difficulty_selector.frame.pack(side=tk.TOP, pady=10)
 
         # Create the button panel
         self.button_panel = ButtonPanel(
-            self.main_frame,
+            self.control_frame,
             on_new_game=self._on_new_game,
             on_solve=self._on_solve,
             on_exit=self._on_exit,
         )
-        self.button_panel.frame.pack(side=tk.RIGHT, padx=10, pady=10)
+        self.button_panel.frame.pack(side=tk.TOP, pady=10)
 
         # Bind keyboard events to the root window
         self.root.bind("<Key>", self._on_key_press)
 
+    def _adjust_number_panel_width(self):
+        """
+        Adjust the number panel width to exactly match the board width.
+        """
+        # Get the *exact* board width without padding
+        board_width = self.board.frame.winfo_width()
+        logger.debug(f">>>UIManager::_adjust_number_panel_width - Adjusting number panel to match board width: {board_width}")
+        
+        # Set width and update the UI
+        self.number_panel.set_width(board_width)
+        self.number_panel.frame.update_idletasks()
+        
+        # Verify the width is correct
+        if self.number_panel.frame.winfo_width() != board_width:
+            # Try again with forced geometry
+            self.number_panel.frame.config(width=board_width)
+            self.root.update_idletasks()
+        
     def start_game(self, board):
         """
         Start a new game by displaying the Sudoku board.
@@ -61,6 +92,10 @@ class UIManager(ControllerDependent):
         logger.debug(">>>UIManager::start_game - Starting new game")
         self.board._create_board(board)
         
+        counts = self.controller.numbers_placed_on_board(board)
+        logger.debug(f">>>UIManager::start_game - Numbers already placed: {counts}")
+        self.number_panel.update_all_numbers(counts)
+
     def set_controller(self, controller):
         """
         Set the controller for this UIManager.
@@ -108,20 +143,25 @@ class UIManager(ControllerDependent):
             
         row, col = selected_pos
         logger.debug(f">>>UIManager::_on_key_press - Selected cell: ({row}, {col})")
-        #check if tile is fixed
         if self.board.tiles[row][col].is_fixed:
-            logger.debug(f">>>UIManager::_on_key_press - Selected cell is fixed, ignoring key press")
             return
         
         if event.char.isdigit() and '1' <= event.char <= '9':
             value = int(event.char)
-            is_game_over = self._handle_number_input(row, col, value)
-            if is_game_over:
-                self.on_game_over()
+            is_valid = self._handle_number_input(row, col, value)
+            if is_valid:
+                counts = self.controller.place_number(value)
+                self.number_panel.update_number_count(value, counts[value])
             else:
-                is_valid_input = self.controller.is_valid_input(row, col, value)
+                if self.controller.is_game_over():
+                    logger.info(">>>UIManager::_on_key_press - Game over due to too many wrong moves")
+                    self.on_game_over()
         elif event.keysym in ('BackSpace', 'Delete'):
+            value = self.board.tiles[row][col].value
+            counts = self.controller.unplace_number(value)
+            self.number_panel.update_number_count(value, counts[value])
             self._handle_delete_input(row, col)
+
         else: 
             logger.info(f">UIManager::_on_key_press - Not supported key: {event.keysym}")
 
@@ -139,7 +179,8 @@ class UIManager(ControllerDependent):
         logger.debug(f">>>UIManager::_handle_number_input - Inputting value {value} at ({row}, {col})")
         
         # Check if the input is valid
-        if self.controller.is_valid_input(row, col, value):
+        is_valid = self.controller.is_valid_input(row, col, value)
+        if is_valid:
             logger.debug(f">>>UIManager::_handle_number_input - Valid input: {value}")
             self.board.tiles[row][col].set_value(value)
             self.controller.set_board_value(row, col, value)
@@ -149,7 +190,8 @@ class UIManager(ControllerDependent):
             # Use the class constant for flash duration
             self.board.flash_cell(row, col, color="red", duration=UIManager.FLASH_DURATION_MS)
             wrong_moves = self.controller.accumulate_wrong_moves(1)
-        return self.controller.is_game_over()
+
+        return is_valid
     
     def _handle_delete_input(self, row, col):   
         """
@@ -169,7 +211,7 @@ class UIManager(ControllerDependent):
         Handle the "New Game" button click.
         """
         logger.info(">UIManager::_on_new_game - Starting a new game")
-        self.controller.start_game()
+        self.controller.start_game(self.difficulty_selector.get_difficulty())
 
     def _on_solve(self):
         """
@@ -211,6 +253,22 @@ class UIManager(ControllerDependent):
             logger.debug(f">>>UIManager::_on_difficulty_change - Not changing difficulty to: {difficulty}")
             self.difficulty_selector.reset_difficulty()
 
+    def _on_number_click(self, number):
+        """
+        Handle number button click events from the NumberPanel.
+
+        Args:
+            number: The number clicked.
+        """
+        logger.debug(f">>>UIManager::_on_number_click - Number {number} clicked")
+        # Simulate a key press for the selected number
+        selected_pos = self.board.get_selected_position()
+        if selected_pos:
+            row, col = selected_pos
+            self._handle_number_input(row, col, number)
+        else:
+            logger.info(">UIManager::_on_number_click - No cell selected, ignoring number click")
+
 
 class SudokuTile:
     """A single tile/cell in the Sudoku grid."""
@@ -242,7 +300,6 @@ class SudokuTile:
             relief=tk.RAISED
         )
         
-        # Keep the frame size fixed
         self.frame.grid_propagate(False)
         
         # Create the tile label for displaying the value
@@ -301,7 +358,6 @@ class SudokuTile:
         if selected:
             self.label.config(bg="#c5e1e8")  # Light blue background for selected tile
         else:
-            # When deselected, go back to fixed or normal background
             if self.is_fixed:
                 self.label.config(bg="#f0f0f0")
             else:
@@ -323,7 +379,6 @@ class SudokuTile:
             # Highlighted tiles have the specified background color
             self.label.config(bg=color)
         else:
-            # When not highlighted, go back to fixed or normal background
             if self.is_fixed:
                 self.label.config(bg="#f0f0f0")  # Light gray for fixed values
             else:
@@ -535,6 +590,7 @@ class ButtonPanel:
             on_exit: Callback function for the "Exit" button.
         """
         logger.debug(">>>ButtonPanel::init - Initializing ButtonPanel")
+
         self.frame = tk.Frame(parent, padx=10, pady=10)
 
         # Create the "New Game" button
@@ -615,3 +671,172 @@ class DifficultySelector:
         """
         logger.debug(f">>>DifficultySelector::get_difficulty - Current difficulty: {self.difficulty_var.get()}")
         return self.difficulty_var.get()
+
+class NumberPanel:
+    """
+    A panel containing number cells (frames) for numbers 1 to 9, allowing keyboard-less gaming
+    and showing feedback on how many of each number are left to be placed.
+    """
+    def __init__(self, parent, on_number_click):
+        """
+        Initialize the number panel.
+
+        Args:
+            parent: The parent widget.
+            on_number_click: Callback function when a number is clicked.
+        """
+        logger.debug(">>>NumberPanel::init - Initializing NumberPanel")
+        # Create a container frame
+        self.frame = tk.Frame(parent)
+        self.on_number_click = on_number_click
+
+        # Create frames for numbers 1 to 9 instead of buttons
+        self.panels = {}
+        for number in range(1, 10):
+            # Create a frame for each number with white background
+            number_frame = tk.Frame(
+                self.frame,
+                borderwidth=2,
+                relief=tk.RAISED,
+                bg="white"  # White background by default
+            )
+            
+            # Create a label inside the frame to display the number and count
+            number_label = tk.Label(
+                number_frame,
+                text=f"{number}\n(9)",
+                font=("Arial", 11),
+                bg="white"  # Same as frame background
+            )
+            number_label.pack(expand=True, fill=tk.BOTH, padx=2, pady=2)
+            
+            # Bind click events to both the frame and label
+            number_frame.bind("<Button-1>", lambda e, n=number: self._handle_number_click(n))
+            number_label.bind("<Button-1>", lambda e, n=number: self._handle_number_click(n))
+            
+            # Grid the frame in the container
+            number_frame.grid(row=0, column=number-1, sticky=tk.NSEW, padx=1, pady=2)
+            
+            # Store references to both the frame and label
+            self.panels[number] = {
+                "frame": number_frame,
+                "label": number_label,
+                "enabled": True  # Track enabled status
+            }
+            
+        # Configure grid to make columns equal width
+        for i in range(9):
+            self.frame.columnconfigure(i, weight=1, uniform="equal")
+        
+        # Configure row to expand and fill available space
+        self.frame.rowconfigure(0, weight=1)
+
+    def set_width(self, width):
+        """
+        Set the width of the number panel to match the specified width.
+        
+        Args:
+            width: The width to match (from the Sudoku board)
+        """
+        logger.debug(f">>>NumberPanel::set_width - Setting panel width to {width}")
+        
+        self.frame.config(width=width, height=60)  # Reduced height from 80 to 60
+        self.frame.pack_propagate(False)
+        self.frame.grid_propagate(False)
+
+    def _handle_number_click(self, number):
+        """
+        Handle number click events.
+
+        Args:
+            number: The number clicked.
+        """
+        logger.debug(f">>>NumberPanel::_handle_number_click - Number {number} clicked")
+        
+        # Only respond to clicks if the panel is enabled
+        if number in self.panels and self.panels[number]["enabled"]:
+            # Provide visual feedback for the click
+            self._flash_panel(number)
+            
+            if self.on_number_click:
+                self.on_number_click(number)
+        else:
+            logger.debug(f">>>NumberPanel::_handle_number_click - Number {number} is disabled, ignoring click")
+
+    def _flash_panel(self, number):
+        """
+        Provide visual feedback when a number is clicked.
+        
+        Args:
+            number: The number that was clicked
+        """
+        if number not in self.panels or not self.panels[number]["enabled"]:
+            return
+            
+        components = self.panels[number]
+        frame = components["frame"]
+        label = components["label"]
+        
+        orig_bg = frame.cget("bg")
+        
+        flash_bg = "#e0e0e0"  # Light gray for flash effect
+        
+        frame.config(bg=flash_bg)
+        label.config(bg=flash_bg)
+        
+        self.frame.after(100, lambda: frame.config(bg=orig_bg))
+        self.frame.after(100, lambda: label.config(bg=orig_bg))
+
+    def update_all_numbers(self, numbers):
+        """
+        Update the number panel with the current numbers.
+
+        Args:
+            numbers: A dictionary with keys from 1 to 9 and their respective counts.
+        9 is the maximum number of times a number can be placed.
+        0 is the minimum number of times a number can be placed.
+        9 - count is the number of times this number has been placed.
+        0 - count is the number of times this number has not been placed.
+        """
+        logger.debug(f">>>NumberPanel::update_all_numbers - Updating all numbers: {numbers}")
+        for number in range(1, 10):
+            self.update_number_count(number, numbers.get(number, 0))
+
+    def update_number_count(self, number, count):
+        """
+        Update the count of how many of a specific number are left to be placed.
+
+        Args:
+            number: The number to update.
+            count: The number of times this number has been placed.
+        """
+        if number in self.panels:
+            if count < 0:
+                count = 0
+            elif count > 9:
+                count = 9
+        # Calculate remaining count (9 - placed)
+        remaining = 9 - count
+            
+        components = self.panels[number]
+        frame = components["frame"]
+        label = components["label"]
+            
+        # Set text with remaining count
+        label.config(text=f"{number}\n({remaining})")
+            
+        if remaining <= 0:
+            # Disable the panel - gray it out
+            frame.config(bg="#f0f0f0")  # Light gray
+            label.config(bg="#f0f0f0", fg="#a0a0a0")  # Gray text on light gray background
+            self.panels[number]["enabled"] = False
+        else:
+            # Enable the panel - white background with black text
+            frame.config(bg="white")
+            label.config(bg="white", fg="black")
+            self.panels[number]["enabled"] = True
+                
+        # Force update
+        label.update()
+        frame.update()
+

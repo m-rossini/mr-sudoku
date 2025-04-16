@@ -34,6 +34,7 @@ class GameController:
         self._wrong_moves_counter = 0
         self._is_game_over = False
         self._notes_mode = False
+        self._counts = {i: 0 for i in range(1, 10)}  # Initialize counts for numbers 1-9
 
     def start_game(self, difficulty):
         """
@@ -66,6 +67,55 @@ class GameController:
         self._is_game_over = self._check_game_over()
         
         return self._wrong_moves_counter
+    
+    def numbers_placed_on_board(self, board):
+        """
+        Count how many of each number are already placed on the board.
+        
+        Args:
+            board: The current Sudoku board
+            
+        Returns:
+            dict: A dictionary mapping numbers to their occurrence counts
+        """
+        self._counts = {i: 0 for i in range(1, 10)}  # Reset counts
+        for row in range(9):
+            for col in range(9):
+                value = board[row][col]
+                if value != 0:
+                    self._counts[value] = self._counts.get(value, 0) + 1
+        return self._counts
+
+    def place_number(self, number):
+        """
+        Update the counts to be shown in the number panel. another number has been placed.
+        Args:
+            number: The number to be placed.        
+        """
+        return self.update_counts(number, +1)
+    
+    def unplace_number(self, number):
+        """
+        Update the counts to be shown in the number panel. another number has been unplaced.
+        Args:
+            number: The number to be unplaced.        
+        """
+        return self.update_counts(number, -1)
+    
+    def update_counts(self, number, value):
+        """
+        Update the counts to be shown in the number panel.
+        Args:
+            number: The number to be updated.
+            value: The value to add or subtract from the count.
+        """
+        logger.debug(f">>>GameController::update_counts - Updating counts for number {number} by {value}")
+        if number in self._counts:
+            self._counts[number] += value
+        else:
+            self._counts[number] = value
+
+        return self._counts
     
     def _check_game_over(self):
         """
