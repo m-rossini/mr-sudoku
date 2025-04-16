@@ -95,6 +95,7 @@ class UIManager(ControllerDependent):
         counts = self.controller.numbers_placed_on_board(board)
         logger.debug(f">>>UIManager::start_game - Numbers already placed: {counts}")
         self.number_panel.update_all_numbers(counts)
+        self.number_panel.enable_all()
 
     def set_controller(self, controller):
         """
@@ -109,17 +110,9 @@ class UIManager(ControllerDependent):
     def on_game_over(self):
         logger.debug(">>>UIManager::_on_game_over - Game over")
         time.sleep(UIManager.FLASH_DURATION_MS/1000)
-        for row in range(9):
-            for col in range(9):
-                tile = self.board.tiles[row][col]
-                tile.label.config(bg="grey")
-                tile.label.unbind("<Button-1>")
-                tile.frame.unbind("<Button-1>")
-                tile.on_click = None
-                tile.frame.bind("<Button-1>", lambda e: None)
-                self.root.unbind("<Key>")
-                tile.label.update()
-        
+        self.board.disable_board()
+        self.number_panel.disable_all()
+
         logger.info("Game Over! You have made too many wrong moves!")
        
     def _on_tile_click(self, row, col):
@@ -158,8 +151,11 @@ class UIManager(ControllerDependent):
                     self.on_game_over()
         elif event.keysym in ('BackSpace', 'Delete'):
             value = self.board.tiles[row][col].value
-            counts = self.controller.unplace_number(value)
-            self.number_panel.update_number_count(value, counts[value])
+            if self.board.tiles[row][col].is_correct_value():
+                logger.debug(f">>>UIManager::_on_key_press - Deleting value {value} at ({row}, {col})")
+                counts = self.controller.unplace_number(value)
+                self.number_panel.update_number_count(value, counts[value])
+
             self._handle_delete_input(row, col)
 
         else: 
@@ -291,6 +287,7 @@ class SudokuTile:
         self.value = value
         self.is_fixed = value != 0
         self.is_selected = False
+        self._is_wrong = False
         
         # Create the tile frame
         self.frame = tk.Frame(
@@ -333,7 +330,8 @@ class SudokuTile:
             value: The numeric value (0 for empty)
         """
         self.value = value
-        
+        self._is_wrong = False
+
         # Update the display text
         if value == 0:
             self.label.config(text="")
@@ -356,10 +354,14 @@ class SudokuTile:
             value: The numeric value (0 for empty)
         """
         self.value = value
+        self._is_wrong = True
         self.label.config(text=str(value))
         self.flash(color="red", duration=UIManager.FLASH_DURATION_MS)
         self.label.config(fg="red", bg="white")
 
+    def is_correct_value(self):
+        return not self._is_wrong
+    
     def select(self, selected=True):
         """
         Select or deselect this tile.
@@ -588,6 +590,20 @@ class SudokuBoard:
         """
         return self.selected_pos
 
+    def disable_board(self):
+        """Disable all interaction with the board."""
+        logger.debug(">>>SudokuBoard::disable_board - Disabling all board interactions")
+        for row in range(9):
+            for col in range(9):
+                tile = self.tiles[row][col]
+                tile.label.config(bg="grey")
+                tile.label.unbind("<Button-1>")
+                tile.frame.unbind("<Button-1>")
+                tile.on_click = None
+                tile.frame.bind("<Button-1>", lambda e: None)
+                # Note: root unbinding should happen in the window class, not here
+                tile.label.update()
+
 class ButtonPanel:
     """
     A panel containing buttons for starting a new game, solving the puzzle, and exiting the game.
@@ -745,19 +761,15 @@ class NumberPanel:
             )
             number_label.pack(expand=True, fill=tk.BOTH, padx=2, pady=2)
             
-            # Bind click events to both the frame and label
-            number_frame.bind("<Button-1>", lambda e, n=number: self._handle_number_click(n))
-            number_label.bind("<Button-1>", lambda e, n=number: self._handle_number_click(n))
             
             # Grid the frame in the container
             number_frame.grid(row=0, column=number-1, sticky=tk.NSEW, padx=1, pady=2)
-            
-            # Store references to both the frame and label
             self.panels[number] = {
                 "frame": number_frame,
                 "label": number_label,
-                "enabled": True  # Track enabled status
             }
+            
+        self.enable_all()
             
         # Configure grid to make columns equal width
         for i in range(9):
@@ -765,6 +777,31 @@ class NumberPanel:
         
         # Configure row to expand and fill available space
         self.frame.rowconfigure(0, weight=1)
+    def enable_all(self):
+        for number in range(1, 10):
+            components = self.panels[number]
+            number_frame = components["frame"]
+            number_label = components["label"] 
+            number_frame.bind("<Button-1>", lambda e, n=number: self._handle_number_click(n))
+            number_label.bind("<Button-1>", lambda e, n=number: self._handle_number_click(n))
+
+    def disable_all(self):
+        #disable all frames and labels, update the self.panels dictionary
+        logger.debug(">>>NumberPanel::disable_all - Disabling all number panels")
+        for number in range(1, 10):
+            components = self.panels[number]
+            frame = components["frame"]
+            label = components["label"] 
+            frame.config(bg="#f0f0f0")  # Light gray
+            label.config(bg="#f0f0f0", fg="#a0a0a0")  # Gray text on light gray background
+            components["enabled"] = False
+            # Force update
+            label.update()
+            frame.update()
+            logger.debug(f">>>NumberPanel::disable_all - Number {number} disabled")
+            # Disable click events
+            frame.unbind("<Button-1>")
+            label.unbind("<Button-1>")
 
     def set_width(self, width):
         """
