@@ -188,7 +188,8 @@ class UIManager(ControllerDependent):
         else:
             logger.warning(f">>>UIManager::_handle_number_input - Invalid input: {value}")
             # Use the class constant for flash duration
-            self.board.flash_cell(row, col, color="red", duration=UIManager.FLASH_DURATION_MS)
+            self.board.tiles[row][col].set_wrong_value(value)
+            self.controller.set_board_value(row, col, value)
             wrong_moves = self.controller.accumulate_wrong_moves(1)
 
         return is_valid
@@ -347,6 +348,18 @@ class SudokuTile:
             # User-entered or empty values have blue text on white background
             self.label.config(fg="blue", bg="white")
     
+    def set_wrong_value(self, value):
+        """
+        Set the tile's value to a wrong value and update its appearance.
+        
+        Args:
+            value: The numeric value (0 for empty)
+        """
+        self.value = value
+        self.label.config(text=str(value))
+        self.flash(color="red", duration=UIManager.FLASH_DURATION_MS)
+        self.label.config(fg="red", bg="white")
+
     def select(self, selected=True):
         """
         Select or deselect this tile.
@@ -594,8 +607,9 @@ class ButtonPanel:
         self.frame = tk.Frame(parent, padx=10, pady=10)
 
         # Create the "New Game" button
+        self.on_new_game = on_new_game
         self.new_game_button = tk.Button(
-            self.frame, text="New Game", command=on_new_game, width=15, height=2
+            self.frame, text="New Game", command=self.confirm_new_game, width=15, height=2
         )
         self.new_game_button.pack(pady=5)
 
@@ -610,6 +624,27 @@ class ButtonPanel:
             self.frame, text="Exit", command=on_exit, width=15, height=2
         )
         self.exit_button.pack(pady=5)
+
+    def confirm_new_game(self):
+        """
+        Ask the user for confirmation before starting a new game.
+        
+        Returns:
+            bool: True if the user confirms, False otherwise.
+        """
+        logger.debug(">>>ButtonPanel::confirm_new_game - Asking for confirmation to start a new game")
+        response = tk.messagebox.askyesno("New Game", "Are you sure you want to start a new game?")
+        #if yes, then call the command
+        if response:
+            logger.info(">>>ButtonPanel::confirm_new_game - User confirmed new game")
+            self.on_new_game()
+        else:   
+            logger.debug(">>>ButtonPanel::confirm_new_game - User canceled new game")
+        return response
+
+
+
+
 
 class DifficultySelector:
     """
@@ -626,9 +661,9 @@ class DifficultySelector:
         logger.debug(">>>DifficultySelector::init - Initializing DifficultySelector")
         self.frame = tk.Frame(parent, padx=10, pady=10)
 
-        # Label for the difficulty selector
+        # Label for the difficulty selector - now positioned above the dropdown
         self.label = tk.Label(self.frame, text="Select Difficulty:", font=("Arial", 12))
-        self.label.pack(side=tk.LEFT, padx=5)
+        self.label.pack(side=tk.TOP, padx=5, pady=(0, 5))  # Add padding at bottom
 
         # Combo box for difficulty selection
         self.difficulty_var = tk.StringVar(value=Difficulty.MEDIUM.value)
@@ -640,8 +675,8 @@ class DifficultySelector:
             *[difficulty.value for difficulty in Difficulty],
             command=on_difficulty_change
         )
-        self.combo_box.config(width=10)
-        self.combo_box.pack(side=tk.LEFT, padx=5)
+        self.combo_box.config(width=15)  # Increased width for better appearance
+        self.combo_box.pack(side=tk.TOP, padx=5)
 
     def reset_difficulty(self):
         """
