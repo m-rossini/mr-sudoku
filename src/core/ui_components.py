@@ -24,29 +24,37 @@ class UIManager(ControllerDependent):
         # Main frame for all components
         self.main_frame = tk.Frame(root, padx=10, pady=10)
         self.main_frame.pack(expand=True, fill=tk.BOTH)
+        
+        # Create a containing frame for better layout control
+        self.container_frame = tk.Frame(self.main_frame)
+        self.container_frame.pack(expand=True, fill=tk.BOTH)
 
-        # Create a frame for the board
-        self.board_frame = tk.Frame(self.main_frame)
-        self.board_frame.pack(side=tk.LEFT, padx=10, pady=10)
+        # Create a frame for the board on the left
+        self.board_frame = tk.Frame(self.container_frame)
+        self.board_frame.pack(side=tk.LEFT, padx=10, pady=10, fill=tk.BOTH)
 
         # Create the Sudoku board
         self.board = SudokuBoard(self.board_frame, self._on_tile_click)
         self.board.frame.pack(side=tk.TOP, padx=10, pady=10)
         
-        # Create the number panel
+        # Add a spacer frame to push everything to the top
+        self.spacer_frame = tk.Frame(self.board_frame)
+        self.spacer_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+        
+        # Create the number panel at the top of the board area
         self.number_panel = NumberPanel(self.board_frame, self._on_number_click)
-        # Pack with exact dimensions to match board width
-        self.number_panel.frame.pack(side=tk.TOP, pady=5, fill=None, expand=False)
+        # Pack with exact dimensions to match board width - place it below the board but above the spacer
+        self.number_panel.frame.pack(side=tk.TOP, pady=5, fill=None, expand=False, before=self.spacer_frame)
         
         # Use a larger delay to ensure the board has fully rendered
         self.root.update_idletasks()
         self.root.after(300, self._adjust_number_panel_width)
 
-        # Create a frame for the control area (difficulty selector + buttons)
-        self.control_frame = tk.Frame(self.main_frame)
-        self.control_frame.pack(side=tk.RIGHT, padx=10, pady=10)
+        # Create a frame for the control area (difficulty selector + buttons) on the right
+        self.control_frame = tk.Frame(self.container_frame)
+        self.control_frame.pack(side=tk.RIGHT, padx=10, pady=10, fill=tk.BOTH)
 
-        # Create the difficulty selector
+        # Create the difficulty selector at the top of the control area
         self.difficulty_selector = DifficultySelector(
             self.control_frame, on_difficulty_change=self._on_difficulty_change
         )
@@ -60,6 +68,10 @@ class UIManager(ControllerDependent):
             on_exit=self._on_exit,
         )
         self.button_panel.frame.pack(side=tk.TOP, pady=10)
+        
+        # Add a spacer frame to push everything to the top of the control area
+        self.control_spacer = tk.Frame(self.control_frame)
+        self.control_spacer.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
         # Bind keyboard events to the root window
         self.root.bind("<Key>", self._on_key_press)
