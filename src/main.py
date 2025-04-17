@@ -15,7 +15,8 @@ if __name__ == "__main__":
         sys.path.insert(0, str(parent_dir))
 
 from core.ui_components import UIManager
-from core.game import FixedBoardSudokuGenerator, SimpleSudokuSolver, GameEngine
+# Update the import to use our new generator
+from core.game import BacktrackingSudokuGenerator, SimpleSudokuSolver, GameEngine
 from core.controller import GameController
 
 # Configure logging
@@ -83,7 +84,8 @@ def _initialize_components(root):
     """
     logger.debug(">>>Main::initialize_components - Initializing components for the whole game")
 
-    generator = FixedBoardSudokuGenerator()
+    # Use the BacktrackingSudokuGenerator instead of FixedBoardSudokuGenerator
+    generator = BacktrackingSudokuGenerator()
     solver = SimpleSudokuSolver()
     engine = GameEngine(generator, solver)
     uimanager = UIManager(root, on_closing)  # Pass on_closing as a dependency

@@ -3,6 +3,9 @@ from typing import List
 from core.controller import ControllerDependent
 from core.difficulty import Difficulty
 import logging
+import random
+import copy
+import time # Add time import
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +139,153 @@ class SudokuGenerator(ABC):
     def generate(self, difficulty: str) -> tuple[List[List[int]], List[List[int]]]:
         """Generate a new Sudoku puzzle based on the difficulty."""
         pass
+
+
+class BacktrackingSudokuGenerator(SudokuGenerator):
+    """
+    Generates Sudoku puzzles using a backtracking algorithm.
+    Creates a fully solved board, then removes cells based on difficulty.
+    """
+    def __init__(self):
+        logger.debug(">>>BacktrackingSudokuGenerator::__init__ - Initializing BacktrackingSudokuGenerator")
+        self.board = [[0 for _ in range(9)] for _ in range(9)]
+        self.solution = None
+        self.backtrack_count = 0 # Initialize backtrack counter
+
+    def generate(self, difficulty: str) -> tuple[List[List[int]], List[List[int]]]:
+        """
+        Generates a new Sudoku puzzle and its solution.
+
+        Args:
+            difficulty: The desired difficulty level (e.g., "Easy", "Medium").
+
+        Returns:
+            A tuple containing the puzzle board and the solution board.
+        """
+        logger.debug(f">>>BacktrackingSudokuGenerator::generate - Generating puzzle with difficulty: {difficulty}")
+        start_time = time.time() # Record start time
+        self.backtrack_count = 0 # Reset backtrack counter for new generation
+
+        # 1. Create a fully solved board
+        self.board = [[0 for _ in range(9)] for _ in range(9)] # Reset board
+        if not self._solve_board():
+             logger.error(">>>BacktrackingSudokuGenerator::generate - Failed to create a solved board!")
+             # Handle error appropriately, maybe raise an exception or return None/empty boards
+             return None, None # Or raise an exception
+        self.solution = copy.deepcopy(self.board) # Store the solution
+        logger.debug(">>>BacktrackingSudokuGenerator::generate - Solved board created.")
+
+        # 2. Remove cells based on difficulty
+        puzzle_board = copy.deepcopy(self.solution)
+        self._remove_cells(puzzle_board, difficulty)
+
+        end_time = time.time() # Record end time
+        duration = end_time - start_time
+
+        logger.info(f">BacktrackingSudokuGenerator::generate - Puzzle generated for difficulty {difficulty}. Backtracks: {self.backtrack_count}. Time: {duration:.4f} seconds.")
+
+        return puzzle_board, self.solution
+
+    def _find_empty(self):
+        """Finds the next empty cell (represented by 0) in the board."""
+        for r in range(9):
+            for c in range(9):
+                if self.board[r][c] == 0:
+                    return (r, c)
+        return None
+
+    def _is_valid(self, num, pos):
+        """Checks if placing 'num' at 'pos' (row, col) is valid."""
+        row, col = pos
+
+        # Check row
+        if num in self.board[row]:
+            return False
+
+        # Check column
+        if num in [self.board[i][col] for i in range(9)]:
+            return False
+
+        # Check 3x3 box
+        box_x = col // 3
+        box_y = row // 3
+        for i in range(box_y * 3, box_y * 3 + 3):
+            for j in range(box_x * 3, box_x * 3 + 3):
+                if self.board[i][j] == num:
+                    return False
+
+        return True
+
+    def _solve_board(self):
+        """Fills the board completely using backtracking."""
+        find = self._find_empty()
+        if not find:
+            return True  # Board is full
+        else:
+            row, col = find
+
+        nums = list(range(1, 10))
+        random.shuffle(nums) # Introduce randomness for varied solutions
+
+        for num in nums:
+            if self._is_valid(num, (row, col)):
+                self.board[row][col] = num
+
+                if self._solve_board():
+                    return True
+
+                # Backtrack
+                self.backtrack_count += 1 # Increment backtrack counter
+                self.board[row][col] = 0
+
+        return False
+
+    def _remove_cells(self, board, difficulty_str):
+        """
+        Removes cells from the solved board to create the puzzle.
+        The number of cells removed depends on the difficulty.
+        Ensures the puzzle has a unique solution (basic implementation).
+        """
+        try:
+            difficulty = Difficulty(difficulty_str)
+        except ValueError:
+            logger.warning(f"Invalid difficulty '{difficulty_str}', defaulting to Medium.")
+            difficulty = Difficulty.MEDIUM
+
+        # Define number of cells to *keep* based on difficulty
+        # Lower number means harder puzzle (more removed cells)
+        if difficulty == Difficulty.EASY:
+            cells_to_keep = random.randint(40, 45) # Fewer removed
+        elif difficulty == Difficulty.MEDIUM:
+            cells_to_keep = random.randint(32, 39)
+        elif difficulty == Difficulty.HARD:
+            cells_to_keep = random.randint(25, 31)
+        elif difficulty == Difficulty.EXPERT:
+            cells_to_keep = random.randint(17, 24) # More removed
+        else: # Default to Medium
+            cells_to_keep = random.randint(32, 39)
+
+        cells_to_remove = 81 - cells_to_keep
+        logger.debug(f">>>BacktrackingSudokuGenerator::_remove_cells - Difficulty: {difficulty.value}, Cells to remove: {cells_to_remove}")
+
+        removed_count = 0
+        attempts = 0 # Prevent infinite loops if something goes wrong
+        max_attempts = 200 # Arbitrary limit
+
+        while removed_count < cells_to_remove and attempts < max_attempts:
+            row = random.randint(0, 8)
+            col = random.randint(0, 8)
+            attempts += 1
+
+            if board[row][col] != 0:
+                # Simple removal strategy: just remove if not already empty
+                # A more robust strategy would check for unique solvability here
+                board[row][col] = 0
+                removed_count += 1
+                logger.debug(f">>>BacktrackingSudokuGenerator::_remove_cells - Removed cell at ({row}, {col}). Count: {removed_count}")
+
+        if removed_count < cells_to_remove:
+             logger.warning(f"Could only remove {removed_count}/{cells_to_remove} cells after {max_attempts} attempts.")
 
 
 class FixedBoardSudokuGenerator(SudokuGenerator):
