@@ -48,7 +48,7 @@ class UIManager(ControllerDependent):
         
         # 2. Create the number panel - placed in row 1 (MIDDLE)
         self.number_panel = NumberPanel(self.board_frame, self._on_number_click)
-        self.number_panel.frame.grid(row=1, column=0, pady=5, sticky="w")
+        self.number_panel.frame.grid(row=1, column=0, pady=5, sticky="ew")
         
         # 3. Create the Info Panel - placed in row 2 (BOTTOM)
         self.info_panel = InfoPanel(self.board_frame)
@@ -103,11 +103,17 @@ class UIManager(ControllerDependent):
         self.number_panel.frame.update_idletasks()
         
         # Verify the width is correct
-        if self.number_panel.frame.winfo_width() != board_width:
+        number_panel_width = self.number_panel.frame.winfo_width()
+        logger.debug(f">>>UIManager::_adjust_number_panel_width - Number panel width after adjustment: {number_panel_width}")
+        
+        if number_panel_width != board_width:
             # Try again with forced geometry
+            logger.debug(f">>>UIManager::_adjust_number_panel_width - Width mismatch, forcing geometry")
             self.number_panel.frame.config(width=board_width)
             self.root.update_idletasks()
-        
+            # Verify again
+            logger.debug(f">>>UIManager::_adjust_number_panel_width - Number panel width after forced geometry: {self.number_panel.frame.winfo_width()}")
+
     def start_game(self, board):
         """
         Start a new game by displaying the Sudoku board.
@@ -413,13 +419,10 @@ class SudokuTile:
         else:
             self.label.config(text=str(value))
         
-        # Set the appropriate styling
         if self.is_fixed:
-            # Fixed values have black text on light gray background
             self.label.config(fg="black", bg="#f0f0f0")
         else:
-            # User-entered or empty values have blue text on white background
-            self.label.config(fg="blue", bg="white")
+            self.label.config(fg="black", bg="white")
     
     def set_wrong_value(self, value):
         """
@@ -559,8 +562,8 @@ class SudokuBoard:
         self.selected_pos = (row, col)
         self.tiles[row][col].select(True)
         
-        # Highlight tiles with the same value
         self._highlight_matching_values(row, col)
+        self._highlight_not_possible_locations(row, col)
         
         # Call the external click handler
         if self.on_tile_click:
@@ -582,13 +585,30 @@ class SudokuBoard:
                 if (r, c) != (row, col):  # Don't clear selection highlight
                     self.tiles[r][c].highlight(False)
         
-        # Very light blue for row/column highlighting
-        very_light_blue = "#deebf0"  # Extremely light blue
-        
-        # Medium light blue for value matching
         matching_blue = "#e1f5fe"
+        selected_value = self.tiles[row][col].value
         
-        # First, highlight the row and column
+        # Skip value highlighting if selected cell is empty
+        if selected_value == 0:
+            return
+        
+        # Highlight matching values with a more noticeable blue
+        # but only if they're not already in the highlighted row/column
+        for r in range(9):
+            for c in range(9):
+                if (r, c) != (row, col) and r != row and c != col and self.tiles[r][c].value == selected_value:
+                    self.tiles[r][c].highlight(True, matching_blue)
+
+    def _highlight_not_possible_locations(self, row, col):
+        """
+        Highlight cells that cannot contain the same value as the selected cell
+        (cells in the same row, column, and 3x3 box).
+        
+        Args:
+            row: Row index of selected tile
+            col: Column index of selected tile
+        """
+        very_light_blue = "#deebf0"  
         for r in range(9):
             for c in range(9):
                 # Skip the selected cell
@@ -602,21 +622,11 @@ class SudokuBoard:
                 # Highlight cells in the same column
                 elif c == col:
                     self.tiles[r][c].highlight(True, very_light_blue)
-        
-        # Get the selected value
-        selected_value = self.tiles[row][col].value
-        
-        # Skip value highlighting if selected cell is empty
-        if selected_value == 0:
-            return
-        
-        # Highlight matching values with a more noticeable blue
-        # but only if they're not already in the highlighted row/column
-        for r in range(9):
-            for c in range(9):
-                if (r, c) != (row, col) and r != row and c != col and self.tiles[r][c].value == selected_value:
-                    self.tiles[r][c].highlight(True, matching_blue)
-    
+                
+                # Highlight cells in the same 3x3 box
+                elif (r // 3 == row // 3) and (c // 3 == col // 3):
+                    self.tiles[r][c].highlight(True, very_light_blue)
+
     def flash_cell(self, row, col, color="red", duration=UIManager.FLASH_DURATION_MS):
         """
         Flash a cell with a color temporarily.
@@ -887,9 +897,28 @@ class NumberPanel:
         """
         logger.debug(f">>>NumberPanel::set_width - Setting panel width to {width}")
         
-        self.frame.config(width=width, height=60)  # Reduced height from 80 to 60
+        # Ensure width is an integer
+        width = int(width)
+        
+        # Direct configuration of the frame width
+        self.frame.config(width=width, height=60)
+        
+        # Make sure the frame doesn't propagate its size from its children
         self.frame.pack_propagate(False)
         self.frame.grid_propagate(False)
+        
+        # Force update to apply the new width
+        self.frame.update_idletasks()
+        
+        # Verify width was set correctly
+        actual_width = self.frame.winfo_width()
+        logger.debug(f">>>NumberPanel::set_width - Actual width after setting: {actual_width}")
+        
+        # Distribute the width equally among the number cells
+        cell_width = width // 9
+        for number in range(1, 10):
+            # Adjust each number frame to have an equal share of the width
+            self.panels[number]["frame"].config(width=cell_width)
 
     def _handle_number_click(self, number):
         """
