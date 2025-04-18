@@ -48,7 +48,7 @@ class UIManager(ControllerDependent):
         
         # 2. Create the number panel - placed in row 1 (MIDDLE)
         self.number_panel = NumberPanel(self.board_frame, self._on_number_click)
-        self.number_panel.frame.grid(row=1, column=0, pady=5, sticky="w")
+        self.number_panel.frame.grid(row=1, column=0, pady=5, sticky="ew")
         
         # 3. Create the Info Panel - placed in row 2 (BOTTOM)
         self.info_panel = InfoPanel(self.board_frame)
@@ -103,11 +103,17 @@ class UIManager(ControllerDependent):
         self.number_panel.frame.update_idletasks()
         
         # Verify the width is correct
-        if self.number_panel.frame.winfo_width() != board_width:
+        number_panel_width = self.number_panel.frame.winfo_width()
+        logger.debug(f">>>UIManager::_adjust_number_panel_width - Number panel width after adjustment: {number_panel_width}")
+        
+        if number_panel_width != board_width:
             # Try again with forced geometry
+            logger.debug(f">>>UIManager::_adjust_number_panel_width - Width mismatch, forcing geometry")
             self.number_panel.frame.config(width=board_width)
             self.root.update_idletasks()
-        
+            # Verify again
+            logger.debug(f">>>UIManager::_adjust_number_panel_width - Number panel width after forced geometry: {self.number_panel.frame.winfo_width()}")
+
     def start_game(self, board):
         """
         Start a new game by displaying the Sudoku board.
@@ -887,9 +893,28 @@ class NumberPanel:
         """
         logger.debug(f">>>NumberPanel::set_width - Setting panel width to {width}")
         
-        self.frame.config(width=width, height=60)  # Reduced height from 80 to 60
+        # Ensure width is an integer
+        width = int(width)
+        
+        # Direct configuration of the frame width
+        self.frame.config(width=width, height=60)
+        
+        # Make sure the frame doesn't propagate its size from its children
         self.frame.pack_propagate(False)
         self.frame.grid_propagate(False)
+        
+        # Force update to apply the new width
+        self.frame.update_idletasks()
+        
+        # Verify width was set correctly
+        actual_width = self.frame.winfo_width()
+        logger.debug(f">>>NumberPanel::set_width - Actual width after setting: {actual_width}")
+        
+        # Distribute the width equally among the number cells
+        cell_width = width // 9
+        for number in range(1, 10):
+            # Adjust each number frame to have an equal share of the width
+            self.panels[number]["frame"].config(width=cell_width)
 
     def _handle_number_click(self, number):
         """
