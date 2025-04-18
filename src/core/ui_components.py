@@ -3,6 +3,8 @@ import logging
 from core.controller import ControllerDependent
 import time
 from core.difficulty import Difficulty
+from tkinter import messagebox
+from core.controller import MAX_WRONG_MOVES
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,9 @@ class UIManager(ControllerDependent):
         logger.debug(">>>UIManager::init - Initializing UIManager")
         self.root = root
         self.on_closing = on_closing  # Store the on_closing function
+        self._timer_running = False
+        self._start_time = None
+        self._timer_id = None
 
         # Main frame for all components
         self.main_frame = tk.Frame(root, padx=10, pady=10)
@@ -32,20 +37,29 @@ class UIManager(ControllerDependent):
         # Create a frame for the board on the left
         self.board_frame = tk.Frame(self.container_frame)
         self.board_frame.pack(side=tk.LEFT, padx=10, pady=10, fill=tk.BOTH)
-
-        # Create the Sudoku board
+        
+        # Configure grid for the board frame
+        self.board_frame.columnconfigure(0, weight=1)  # Single column
+        
+        # --- Grid Layout (Precise Control) ---
+        # 1. Create the Sudoku board - placed in row 0 (TOP)
         self.board = SudokuBoard(self.board_frame, self._on_tile_click)
-        self.board.frame.pack(side=tk.TOP, padx=10, pady=10)
+        self.board.frame.grid(row=0, column=0, padx=10, pady=10, sticky="w")
         
-        # Add a spacer frame to push everything to the top
-        self.spacer_frame = tk.Frame(self.board_frame)
-        self.spacer_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
-        
-        # Create the number panel at the top of the board area
+        # 2. Create the number panel - placed in row 1 (MIDDLE)
         self.number_panel = NumberPanel(self.board_frame, self._on_number_click)
-        # Pack with exact dimensions to match board width - place it below the board but above the spacer
-        self.number_panel.frame.pack(side=tk.TOP, pady=5, fill=None, expand=False, before=self.spacer_frame)
+        self.number_panel.frame.grid(row=1, column=0, pady=5, sticky="w")
         
+        # 3. Create the Info Panel - placed in row 2 (BOTTOM)
+        self.info_panel = InfoPanel(self.board_frame)
+        self.info_panel.frame.grid(row=2, column=0, pady=(0, 5), sticky="ew")
+        
+        # Add a spacer frame in row 3 to push everything to the top
+        self.spacer_frame = tk.Frame(self.board_frame)
+        self.spacer_frame.grid(row=3, column=0, sticky="news")
+        self.board_frame.rowconfigure(3, weight=1)  # Make spacer expandable
+        # --- End Grid Layout ---
+
         # Use a larger delay to ensure the board has fully rendered
         self.root.update_idletasks()
         self.root.after(300, self._adjust_number_panel_width)
@@ -102,12 +116,25 @@ class UIManager(ControllerDependent):
             board: The Sudoku board to display.
         """
         logger.debug(">>>UIManager::start_game - Starting new game")
+        # Clear existing board if any (important for New Game)
+        for widget in self.board.frame.winfo_children():
+            widget.destroy()
+        self.board = SudokuBoard(self.board_frame, self._on_tile_click) # Recreate board widget
+        self.board.frame.grid(row=0, column=0, padx=10, pady=10, sticky="w") # Regrid it (not repack)
+
         self.board._create_board(board)
         
         counts = self.controller.numbers_placed_on_board(board)
         logger.debug(f">>>UIManager::start_game - Numbers already placed: {counts}")
         self.number_panel.update_all_numbers(counts)
         self.number_panel.enable_all()
+
+        # Reset and start the info panel/timer
+        self.info_panel.reset()
+        self._start_timer()
+        # Ensure initial wrong moves count is displayed (should be 0)
+        self.info_panel.update_wrong_moves(self.controller._wrong_moves_counter)
+        self.info_panel.update_moves(self.controller._moves_counter)
 
     def set_controller(self, controller):
         """
@@ -120,12 +147,14 @@ class UIManager(ControllerDependent):
         self.controller = controller
     
     def on_game_over(self):
-        logger.debug(">>>UIManager::_on_game_over - Game over")
+        logger.debug(">>>UIManager::on_game_over - Game over")
+        self._stop_timer() # Stop the timer
         time.sleep(UIManager.FLASH_DURATION_MS/1000)
         self.board.disable_board()
         self.number_panel.disable_all()
 
-        logger.info("Game Over! You have made too many wrong moves!")
+        logger.info(">UIManager::on_game_over - Game Over! You have made too many wrong moves!")
+        messagebox.showinfo("Game Over", "Game Over! You have made too many mistakes.")
        
     def _on_tile_click(self, row, col):
         """Handle tile click events."""
@@ -182,7 +211,7 @@ class UIManager(ControllerDependent):
             value: The numeric value to input (1-9)
         
         Returns:
-            bool: True if the game is over, False otherwise
+            bool: True if the input was valid, False otherwise.
         """
         logger.debug(f">>>UIManager::_handle_number_input - Inputting value {value} at ({row}, {col})")
         
@@ -193,12 +222,15 @@ class UIManager(ControllerDependent):
             self.board.tiles[row][col].set_value(value)
             self.controller.set_board_value(row, col, value)
             correct_moves = self.controller.accumulate_moves(1)
+            self.info_panel.update_moves(correct_moves) # Update moves display
         else:
-            logger.warning(f">>>UIManager::_handle_number_input - Invalid input: {value}")
+            logger.warning(f">UIManager::_handle_number_input - Invalid input: {value}")
             # Use the class constant for flash duration
             self.board.tiles[row][col].set_wrong_value(value)
-            self.controller.set_board_value(row, col, value)
+            # Don't set the board value for wrong moves if you want them temporary
+            # self.controller.set_board_value(row, col, value) # Optional: Decide if wrong moves persist
             wrong_moves = self.controller.accumulate_wrong_moves(1)
+            self.info_panel.update_wrong_moves(wrong_moves) # Update wrong moves display
 
         return is_valid
     
@@ -234,6 +266,7 @@ class UIManager(ControllerDependent):
         Handle the "Exit" button click.
         """
         logger.info(">UIManager::_on_exit - Exiting the game")
+        self._stop_timer() # Stop timer before potentially closing
         self.on_closing(self.root)  # Call the on_closing function
 
     def get_difficulty(self):
@@ -255,7 +288,8 @@ class UIManager(ControllerDependent):
         logger.info(f">UIManager::_on_difficulty_change - Difficulty changed to {difficulty}")
         # Ask the user in a message box if they want to start a new game since it changed the difficulty level
         
-        if tk.messagebox.askyesno("Change Difficulty", "Changing difficulty will reset the game. Do you want to continue?"):
+        if messagebox.askyesno("Change Difficulty", "Changing difficulty will start a new game. Do you want to continue?"):
+            self._stop_timer() # Stop timer for the old game
             self.difficulty_selector._set_difficulty(Difficulty(difficulty))
             self.controller.start_game(self.get_difficulty())
         else:
@@ -277,6 +311,35 @@ class UIManager(ControllerDependent):
             self._handle_number_input(row, col, number)
         else:
             logger.info(">UIManager::_on_number_click - No cell selected, ignoring number click")
+
+    # --- Timer Methods ---
+    def _start_timer(self):
+        """Starts the game timer."""
+        if not self._timer_running:
+            self._start_time = time.time()
+            self._timer_running = True
+            logger.debug(">>>UIManager::_start_timer - Timer started")
+            self._update_timer_display() # Start the update loop
+
+    def _stop_timer(self):
+        """Stops the game timer."""
+        if self._timer_running:
+            self._timer_running = False
+            if self._timer_id:
+                self.root.after_cancel(self._timer_id)
+                self._timer_id = None
+            logger.debug(">>>UIManager::_stop_timer - Timer stopped")
+
+    def _update_timer_display(self):
+        """Updates the timer label every second."""
+        if self._timer_running:
+            elapsed_seconds = int(time.time() - self._start_time)
+            minutes = elapsed_seconds // 60
+            seconds = elapsed_seconds % 60
+            time_str = f"{minutes:02d}:{seconds:02d}"
+            self.info_panel.update_time(time_str)
+            # Schedule the next update
+            self._timer_id = self.root.after(1000, self._update_timer_display)
 
 
 class SudokuTile:
@@ -924,3 +987,61 @@ class NumberPanel:
         label.update()
         frame.update()
 
+class InfoPanel:
+    """
+    A panel to display game information like time, moves, and wrong moves.
+    """
+    def __init__(self, parent):
+        """
+        Initialize the info panel.
+
+        Args:
+            parent: The parent widget.
+        """
+        logger.debug(">>>InfoPanel::init - Initializing InfoPanel")
+        self.frame = tk.Frame(parent, pady=5)
+
+        # Configure grid layout for the info panel frame
+        self.frame.columnconfigure(0, weight=1) # Label column
+        self.frame.columnconfigure(1, weight=1) # Value column
+        self.frame.columnconfigure(2, weight=1) # Label column
+        self.frame.columnconfigure(3, weight=1) # Value column
+        self.frame.columnconfigure(4, weight=1) # Label column
+        self.frame.columnconfigure(5, weight=1) # Value column
+
+        # Time display
+        tk.Label(self.frame, text="Time:", font=("Arial", 10)).grid(row=0, column=0, sticky=tk.E, padx=(0, 2))
+        self.time_label = tk.Label(self.frame, text="00:00", font=("Arial", 10, "bold"))
+        self.time_label.grid(row=0, column=1, sticky=tk.W, padx=(2, 10))
+
+        # Moves display
+        tk.Label(self.frame, text="Moves:", font=("Arial", 10)).grid(row=0, column=2, sticky=tk.E, padx=(0, 2))
+        self.moves_label = tk.Label(self.frame, text="0", font=("Arial", 10, "bold"))
+        self.moves_label.grid(row=0, column=3, sticky=tk.W, padx=(2, 10))
+
+        # Wrong Moves display
+        tk.Label(self.frame, text="Mistakes:", font=("Arial", 10)).grid(row=0, column=4, sticky=tk.E, padx=(0, 2))
+        self.wrong_moves_label = tk.Label(self.frame, text=f"0/{MAX_WRONG_MOVES}", font=("Arial", 10, "bold"))
+        self.wrong_moves_label.grid(row=0, column=5, sticky=tk.W, padx=(2, 0))
+
+    def update_time(self, elapsed_time_str):
+        """Update the time display."""
+        self.time_label.config(text=elapsed_time_str)
+        self.time_label.update_idletasks() # Ensure immediate update
+
+    def update_moves(self, moves):
+        """Update the moves display."""
+        self.moves_label.config(text=str(moves))
+        self.moves_label.update_idletasks()
+
+    def update_wrong_moves(self, wrong_moves):
+        """Update the wrong moves display."""
+        self.wrong_moves_label.config(text=f"{wrong_moves}/{MAX_WRONG_MOVES}")
+        self.wrong_moves_label.update_idletasks()
+
+    def reset(self):
+        """Reset all displays to their initial state."""
+        logger.debug(">>>InfoPanel::reset - Resetting info panel displays")
+        self.update_time("00:00")
+        self.update_moves(0)
+        self.update_wrong_moves(0)
