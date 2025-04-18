@@ -2,6 +2,10 @@ import logging
 from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
+
+# Define MAX_WRONG_MOVES here so it's accessible by ui_components
+MAX_WRONG_MOVES = 3
+
 class ControllerDependent(ABC):
     """
     Abstract base class for components that depend on a controller.
@@ -19,7 +23,6 @@ class ControllerDependent(ABC):
         """
         pass
 
-MAX_WRONG_MOVES = 3
 class GameController:
     def __init__(self, engine, uimanager):
         logger.debug(">>>GameController::init - Initializing GameController")
@@ -30,8 +33,8 @@ class GameController:
 
         self._board = None
         self._solution = None
-        self._moves_counter = 0
-        self._wrong_moves_counter = 0
+        self._moves_counter = 0 # Keep track of correct moves
+        self._wrong_moves_counter = 0 # Keep track of mistakes
         self._is_game_over = False
         self._notes_mode = False
         self._counts = {i: 0 for i in range(1, 10)}  # Initialize counts for numbers 1-9
@@ -40,15 +43,18 @@ class GameController:
         """
         Start the game by generating a new Sudoku puzzle.
         """
-        logger.debug(">>>GameController::start_game - Starting new game")
+        logger.info(f">GameController::start_game - Starting new game with difficulty: {difficulty}")
         self._board, self._solution = self._engine.generator.generate(difficulty)
+        # Reset counters for the new game
         self._moves_counter = 0
         self._wrong_moves_counter = 0
         self._is_game_over = False
         self._notes_mode = False
-        
+        self._counts = {i: 0 for i in range(1, 10)} # Reset number counts
+
+        # Pass the generated board to the UI manager to display
         self._uimanager.start_game(self._board)
-        return
+        # Note: UIManager.start_game now handles resetting its own displays (timer, moves)
 
     def is_valid_input(self, row, col, value):
         logger.debug(f">>>GameController::handle_key_input - Key input at ({row}, {col}): {value}")
@@ -61,11 +67,14 @@ class GameController:
         if value_to_accumulate < 0:
             logger.debug(f">>>GameController::accumulate_wrong_moves - Accumulating wrong moves received invalid value and it will be ignored: {value_to_accumulate}")
             return self._wrong_moves_counter
-        logger.debug(f">>>GameController::accumulate_wrong_moves - Accumulating wrong moves: {value_to_accumulate}")
+        logger.debug(f">>>GameController::accumulate_wrong_moves - Accumulating wrong moves: {value_to_accumulate}. Current total: {self._wrong_moves_counter + value_to_accumulate}")
         self._wrong_moves_counter += value_to_accumulate
 
         self._is_game_over = self._check_game_over()
-        
+        if self._is_game_over:
+             logger.info(">GameController::accumulate_wrong_moves - Game over condition met.")
+             # UIManager will handle the game over state visually based on is_game_over() check after move attempt
+
         return self._wrong_moves_counter
     
     def numbers_placed_on_board(self, board):
@@ -142,15 +151,24 @@ class GameController:
     
     def accumulate_moves(self,value_to_accumulate):
         """
-            Accumulate moves made by the player. If passed a negative value, it will be subtracted from the moves counter.
-            if passed a zero value, it will not change the moves counter and will return the current moves counter.
+            Accumulate correct moves made by the player.
             Args:
-                value_to_accumulate: The value to accumulate.
+                value_to_accumulate: The value to accumulate (should be 1 for a correct move).
             Returns:
-                int: The updated moves counter.
+                int: The updated correct moves counter.
         """
-        logger.debug(f">>>GameController::accumulate_moves - Accumulating moves: {value_to_accumulate}")
-        self._moves_counter += value_to_accumulate
+        if value_to_accumulate > 0: # Only count positive accumulations as moves
+             logger.debug(f">>>GameController::accumulate_moves - Accumulating correct moves: {value_to_accumulate}. Current total: {self._moves_counter + value_to_accumulate}")
+             self._moves_counter += value_to_accumulate
+        elif value_to_accumulate < 0:
+             logger.warning(f">>>GameController::accumulate_moves - Received negative value, ignoring: {value_to_accumulate}")
+        # else: value is 0, do nothing
+
+        # Check for win condition (optional, could be added here or in UIManager)
+        # if self._is_board_complete_and_correct():
+        #    logger.info("Board completed successfully!")
+        #    # Trigger win state in UI
+
         return self._moves_counter
     
     def set_board_value(self, row, col, value):

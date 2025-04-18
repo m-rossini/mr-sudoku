@@ -9,3 +9,4 @@ When coding, enforce interface segregation principle
 When coding, enforce dependency injection principle
 
 When creating tests, please test interfaces do not test implementation details
+Ensure import statements are always at the top of the file. In python import comes before from
