@@ -22,9 +22,6 @@ class UIManager(ControllerDependent):
         logger.debug(">>>UIManager::init - Initializing UIManager")
         self.root = root
         self.on_closing = on_closing  # Store the on_closing function
-        self._timer_running = False  # Keep this for UI updates
-        self._timer_id = None  # Keep this for UI updates
-        # Remove _start_time as it's now in the controller
 
         # Main frame for all components
         self.main_frame = tk.Frame(root, padx=10, pady=10)
@@ -321,7 +318,7 @@ class UIManager(ControllerDependent):
     # --- Timer Methods ---
     def _start_timer(self):
         """Starts the game timer."""
-        if not self._timer_running:
+        if not self.controller.is_timer_running():
             # Let the controller start/track the actual timer
             self.controller.start_timer()
             self._timer_running = True
@@ -330,7 +327,8 @@ class UIManager(ControllerDependent):
 
     def _stop_timer(self):
         """Stops the game timer."""
-        if self._timer_running:
+    def is_timer_running(self):
+        if self.is_timer_running():
             self._timer_running = False
             # Tell the controller to stop its timer
             self.controller.stop_timer()
@@ -341,7 +339,7 @@ class UIManager(ControllerDependent):
 
     def _update_timer_display(self):
         """Updates the timer label every second."""
-        if self._timer_running and self.controller.is_timer_running():
+        if self.controller.is_timer_running():
             # Get the elapsed time from the controller
             elapsed_seconds = self.controller.get_elapsed_time()
             minutes = elapsed_seconds // 60
