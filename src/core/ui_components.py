@@ -419,13 +419,10 @@ class SudokuTile:
         else:
             self.label.config(text=str(value))
         
-        # Set the appropriate styling
         if self.is_fixed:
-            # Fixed values have black text on light gray background
             self.label.config(fg="black", bg="#f0f0f0")
         else:
-            # User-entered or empty values have blue text on white background
-            self.label.config(fg="blue", bg="white")
+            self.label.config(fg="black", bg="white")
     
     def set_wrong_value(self, value):
         """
@@ -565,8 +562,8 @@ class SudokuBoard:
         self.selected_pos = (row, col)
         self.tiles[row][col].select(True)
         
-        # Highlight tiles with the same value
         self._highlight_matching_values(row, col)
+        self._highlight_not_possible_locations(row, col)
         
         # Call the external click handler
         if self.on_tile_click:
@@ -588,13 +585,30 @@ class SudokuBoard:
                 if (r, c) != (row, col):  # Don't clear selection highlight
                     self.tiles[r][c].highlight(False)
         
-        # Very light blue for row/column highlighting
-        very_light_blue = "#deebf0"  # Extremely light blue
-        
-        # Medium light blue for value matching
         matching_blue = "#e1f5fe"
+        selected_value = self.tiles[row][col].value
         
-        # First, highlight the row and column
+        # Skip value highlighting if selected cell is empty
+        if selected_value == 0:
+            return
+        
+        # Highlight matching values with a more noticeable blue
+        # but only if they're not already in the highlighted row/column
+        for r in range(9):
+            for c in range(9):
+                if (r, c) != (row, col) and r != row and c != col and self.tiles[r][c].value == selected_value:
+                    self.tiles[r][c].highlight(True, matching_blue)
+
+    def _highlight_not_possible_locations(self, row, col):
+        """
+        Highlight cells that cannot contain the same value as the selected cell
+        (cells in the same row, column, and 3x3 box).
+        
+        Args:
+            row: Row index of selected tile
+            col: Column index of selected tile
+        """
+        very_light_blue = "#deebf0"  
         for r in range(9):
             for c in range(9):
                 # Skip the selected cell
@@ -608,21 +622,11 @@ class SudokuBoard:
                 # Highlight cells in the same column
                 elif c == col:
                     self.tiles[r][c].highlight(True, very_light_blue)
-        
-        # Get the selected value
-        selected_value = self.tiles[row][col].value
-        
-        # Skip value highlighting if selected cell is empty
-        if selected_value == 0:
-            return
-        
-        # Highlight matching values with a more noticeable blue
-        # but only if they're not already in the highlighted row/column
-        for r in range(9):
-            for c in range(9):
-                if (r, c) != (row, col) and r != row and c != col and self.tiles[r][c].value == selected_value:
-                    self.tiles[r][c].highlight(True, matching_blue)
-    
+                
+                # Highlight cells in the same 3x3 box
+                elif (r // 3 == row // 3) and (c // 3 == col // 3):
+                    self.tiles[r][c].highlight(True, very_light_blue)
+
     def flash_cell(self, row, col, color="red", duration=UIManager.FLASH_DURATION_MS):
         """
         Flash a cell with a color temporarily.
