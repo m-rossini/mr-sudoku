@@ -22,9 +22,9 @@ class UIManager(ControllerDependent):
         logger.debug(">>>UIManager::init - Initializing UIManager")
         self.root = root
         self.on_closing = on_closing  # Store the on_closing function
-        self._timer_running = False
-        self._start_time = None
-        self._timer_id = None
+        self._timer_running = False  # Keep this for UI updates
+        self._timer_id = None  # Keep this for UI updates
+        # Remove _start_time as it's now in the controller
 
         # Main frame for all components
         self.main_frame = tk.Frame(root, padx=10, pady=10)
@@ -322,15 +322,18 @@ class UIManager(ControllerDependent):
     def _start_timer(self):
         """Starts the game timer."""
         if not self._timer_running:
-            self._start_time = time.time()
+            # Let the controller start/track the actual timer
+            self.controller.start_timer()
             self._timer_running = True
             logger.debug(">>>UIManager::_start_timer - Timer started")
-            self._update_timer_display() # Start the update loop
+            self._update_timer_display()  # Start the update loop
 
     def _stop_timer(self):
         """Stops the game timer."""
         if self._timer_running:
             self._timer_running = False
+            # Tell the controller to stop its timer
+            self.controller.stop_timer()
             if self._timer_id:
                 self.root.after_cancel(self._timer_id)
                 self._timer_id = None
@@ -338,15 +341,19 @@ class UIManager(ControllerDependent):
 
     def _update_timer_display(self):
         """Updates the timer label every second."""
-        if self._timer_running:
-            elapsed_seconds = int(time.time() - self._start_time)
+        if self._timer_running and self.controller.is_timer_running():
+            # Get the elapsed time from the controller
+            elapsed_seconds = self.controller.get_elapsed_time()
             minutes = elapsed_seconds // 60
             seconds = elapsed_seconds % 60
             time_str = f"{minutes:02d}:{seconds:02d}"
             self.info_panel.update_time(time_str)
             # Schedule the next update
             self._timer_id = self.root.after(1000, self._update_timer_display)
-
+        elif self._timer_running:
+            # Controller timer is stopped but UI thinks it's running
+            self._timer_running = False
+            logger.debug(">>>UIManager::_update_timer_display - Timer stopped (controller)")
 
 class SudokuTile:
     """A single tile/cell in the Sudoku grid."""

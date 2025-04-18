@@ -1,4 +1,5 @@
 import logging
+import time
 from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,10 @@ class GameController:
         self._is_game_over = False
         self._notes_mode = False
         self._counts = {i: 0 for i in range(1, 10)}  # Initialize counts for numbers 1-9
+        
+        # Add time tracking variables
+        self._start_time = None
+        self._is_timer_running = False
 
     def start_game(self, difficulty):
         """
@@ -51,6 +56,10 @@ class GameController:
         self._is_game_over = False
         self._notes_mode = False
         self._counts = {i: 0 for i in range(1, 10)} # Reset number counts
+        
+        # Reset timer
+        self._start_time = None
+        self._is_timer_running = False
 
         # Pass the generated board to the UI manager to display
         self._uimanager.start_game(self._board)
@@ -192,3 +201,40 @@ class GameController:
         """
         logger.debug(">>>GameController::solve_puzzle - Solving puzzle")
         return self._engine.solve(self._board)
+    
+    def start_timer(self):
+        """
+        Start or restart the game timer.
+        """
+        logger.debug(">>>GameController::start_timer - Starting game timer")
+        self._start_time = time.time()
+        self._is_timer_running = True
+        return self._start_time
+    
+    def stop_timer(self):
+        """
+        Stop the game timer.
+        """
+        logger.debug(">>>GameController::stop_timer - Stopping game timer")
+        self._is_timer_running = False
+    
+    def get_elapsed_time(self):
+        """
+        Get the elapsed time in seconds since the timer was started.
+        
+        Returns:
+            int: Elapsed time in seconds, or 0 if timer isn't running
+        """
+        if not self._is_timer_running or self._start_time is None:
+            return 0
+            
+        return int(time.time() - self._start_time)
+    
+    def is_timer_running(self):
+        """
+        Check if the timer is currently running.
+        
+        Returns:
+            bool: True if the timer is running, False otherwise
+        """
+        return self._is_timer_running
