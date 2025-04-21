@@ -71,6 +71,14 @@ class UIManager(ControllerDependent):
         )
         self.difficulty_selector.frame.pack(side=tk.TOP, pady=10)
 
+        # Create the options panel
+        self.options_panel = OptionsPanel(
+            self.control_frame,
+            on_notes_mode_change=self._on_notes_mode_change,
+            on_auto_notes_mode_change=self._on_auto_notes_mode_change,
+        )
+        self.options_panel.frame.pack(side=tk.TOP, pady=10)
+
         # Create the button panel
         self.button_panel = ButtonPanel(
             self.control_frame,
@@ -159,6 +167,26 @@ class UIManager(ControllerDependent):
         logger.info(">UIManager::on_game_over - Game Over! You have made too many wrong moves!")
         messagebox.showinfo("Game Over", "Game Over! You have made too many mistakes.")
        
+    def _on_notes_mode_change(self, enabled):
+        """
+        Handle changes to the Notes Mode checkbox.
+
+        Args:
+            enabled: True if Notes Mode is enabled, False otherwise.
+        """
+        logger.info(f">UIManager::_on_notes_mode_change - Notes Mode set to {enabled}")
+        self.controller._notes_mode = enabled
+
+    def _on_auto_notes_mode_change(self, enabled):
+        """
+        Handle changes to the Automatic Notes Mode checkbox.
+
+        Args:
+            enabled: True if Automatic Notes Mode is enabled, False otherwise.
+        """
+        logger.info(f">UIManager::_on_auto_notes_mode_change - Automatic Notes Mode set to {enabled}")
+        # Implement logic for automatic notes mode if needed
+        #        
     def _on_tile_click(self, row, col):
         """Handle tile click events."""
         logger.debug(f">>>UIManager::_on_tile_click - Tile clicked at position ({row}, {col})")
@@ -179,7 +207,7 @@ class UIManager(ControllerDependent):
             return
             
         row, col = selected_pos
-        logger.debug(f">>>UIManager::_on_key_press - Selected cell: ({row}, {col})")
+        logger.debug(f">>>UIManager::_on_key_press - Selected cell: ({row}, {col}. is_fixed: {self.board.tiles[row][col].is_fixed})")
         if self.board.tiles[row][col].is_fixed:
             return
         
@@ -498,7 +526,7 @@ class SudokuTile:
 
 class SudokuBoard:
     """The 9x9 Sudoku game board."""
-    
+
     def __init__(self, parent, on_tile_click=None):
         """
         Initialize a new Sudoku board.
@@ -510,16 +538,16 @@ class SudokuBoard:
         logger.debug(">>>SudokuBoard::__init__ - Creating Sudoku board")
         self.parent = parent
         self.on_tile_click = on_tile_click
-        
+
         # Create main frame
         self.frame = tk.Frame(parent)
-        
+
         # Initialize tiles grid
         self.tiles = [[None for _ in range(9)] for _ in range(9)]
-        
+
         # Currently selected tile position
         self.selected_pos = None
-    
+
     def _create_board(self, board):
         """Create the 9x9 Sudoku board with 3x3 boxes."""
         # Create the 3x3 boxes
@@ -532,22 +560,22 @@ class SudokuBoard:
                     relief=tk.RAISED
                 )
                 box.grid(row=box_row, column=box_col, padx=1, pady=1)
-                
+
                 # Create the 3x3 tiles within each box
                 for cell_row in range(3):
                     for cell_col in range(3):
                         # Calculate global row and column
                         row = box_row * 3 + cell_row
                         col = box_col * 3 + cell_col
-                        
+
                         # Create the tile
                         tile = SudokuTile(box, row, col,value=board[row][col], on_click=self._handle_tile_click)
                         tile.frame.grid(row=cell_row, column=cell_col)
                         # Store reference to the tile
                         self.tiles[row][col] = tile
-        
+
         logger.debug(">>>SudokuBoard::_create_board - Board created with 9x9 grid")
-    
+
     def _handle_tile_click(self, row, col):
         """
         Handle tile click events.
@@ -557,23 +585,23 @@ class SudokuBoard:
             col: Column index of clicked tile
         """
         logger.debug(f">>>SudokuBoard::_handle_tile_click - Tile clicked at ({row}, {col})")
-        
+
         # Deselect previously selected tile
         if self.selected_pos:
             prev_row, prev_col = self.selected_pos
             self.tiles[prev_row][prev_col].select(False)
-        
+
         # Select the newly clicked tile
         self.selected_pos = (row, col)
         self.tiles[row][col].select(True)
-        
+
         self._highlight_matching_values(row, col)
         self._highlight_not_possible_locations(row, col)
-        
+
         # Call the external click handler
         if self.on_tile_click:
             self.on_tile_click(row, col)
-    
+
     def _highlight_matching_values(self, row, col):
         """
         Highlight the row, column, and matching values of the selected tile.
@@ -583,20 +611,20 @@ class SudokuBoard:
             col: Column index of selected tile
         """
         logger.debug(f">>>SudokuBoard::_highlight_matching_values - Highlighting for cell ({row}, {col})")
-        
+
         # Clear previous highlights
         for r in range(9):
             for c in range(9):
                 if (r, c) != (row, col):  # Don't clear selection highlight
                     self.tiles[r][c].highlight(False)
-        
+
         matching_blue = "#e1f5fe"
         selected_value = self.tiles[row][col].value
-        
+
         # Skip value highlighting if selected cell is empty
         if selected_value == 0:
             return
-        
+
         # Highlight matching values with a more noticeable blue
         # but only if they're not already in the highlighted row/column
         for r in range(9):
@@ -613,24 +641,24 @@ class SudokuBoard:
             row: Row index of selected tile
             col: Column index of selected tile
         """
-        very_light_blue = "#deebf0"  
+        light_color = "#fff8e7"
         for r in range(9):
             for c in range(9):
                 # Skip the selected cell
                 if (r, c) == (row, col):
                     continue
-                    
+
                 # Highlight cells in the same row
                 if r == row:
-                    self.tiles[r][c].highlight(True, very_light_blue)
-                
+                    self.tiles[r][c].highlight(True, light_color)
+
                 # Highlight cells in the same column
                 elif c == col:
-                    self.tiles[r][c].highlight(True, very_light_blue)
-                
+                    self.tiles[r][c].highlight(True, light_color)
+
                 # Highlight cells in the same 3x3 box
                 elif (r // 3 == row // 3) and (c // 3 == col // 3):
-                    self.tiles[r][c].highlight(True, very_light_blue)
+                    self.tiles[r][c].highlight(True, light_color)
 
     def flash_cell(self, row, col, color="red", duration=UIManager.FLASH_DURATION_MS):
         """
@@ -643,7 +671,7 @@ class SudokuBoard:
             duration: Duration of flash in milliseconds
         """
         self.tiles[row][col].flash(color, duration)
-    
+
     def clear_highlights(self):
         """
         Clear all highlights on the board.
@@ -652,7 +680,7 @@ class SudokuBoard:
         for row in range(9):
             for col in range(9):
                 self.tiles[row][col].highlight(False)    
-    
+
     def get_selected_position(self):
         """
         Get the currently selected position.
@@ -670,7 +698,7 @@ class SudokuBoard:
         for row in range(9):
             for col in range(9):
                 self.tiles[row][col].highlight(False)    
-    
+
     def get_selected_position(self):
         """
         Get the currently selected position.
@@ -747,9 +775,6 @@ class ButtonPanel:
         else:   
             logger.debug(">>>ButtonPanel::confirm_new_game - User canceled new game")
         return response
-
-
-
 
 
 class DifficultySelector:
@@ -1079,3 +1104,39 @@ class InfoPanel:
         self.update_time("00:00")
         self.update_moves(0)
         self.update_wrong_moves(0)
+
+class OptionsPanel:
+    """
+    A panel containing options like Notes Mode and Automatic Notes Mode.
+    """
+    def __init__(self, parent, on_notes_mode_change, on_auto_notes_mode_change):
+        """
+        Initialize the options panel.
+
+        Args:
+            parent: The parent widget.
+            on_notes_mode_change: Callback for Notes Mode checkbox.
+            on_auto_notes_mode_change: Callback for Automatic Notes Mode checkbox.
+        """
+        logger.debug(">>>OptionsPanel::init - Initializing OptionsPanel")
+        self.frame = tk.Frame(parent, padx=10, pady=10)
+
+        # Notes Mode checkbox
+        self.notes_mode_var = tk.BooleanVar(value=False)
+        self.notes_mode_checkbox = tk.Checkbutton(
+            self.frame,
+            text="Notes Mode",
+            variable=self.notes_mode_var,
+            command=lambda: on_notes_mode_change(self.notes_mode_var.get()),
+        )
+        self.notes_mode_checkbox.pack(anchor=tk.W, pady=2)
+
+        # Automatic Notes Mode checkbox
+        self.auto_notes_mode_var = tk.BooleanVar(value=False)
+        self.auto_notes_mode_checkbox = tk.Checkbutton(
+            self.frame,
+            text="Automatic Notes Mode",
+            variable=self.auto_notes_mode_var,
+            command=lambda: on_auto_notes_mode_change(self.auto_notes_mode_var.get()),
+        )
+        self.auto_notes_mode_checkbox.pack(anchor=tk.W, pady=2)

@@ -1,6 +1,7 @@
 """
 Mr. Sudoku - Main entry point (Tkinter version)
 """
+
 import sys
 import tkinter as tk
 from tkinter import messagebox
@@ -11,17 +12,21 @@ import logging
 # Add the parent directory to sys.path if running as script
 if __name__ == "__main__":
     parent_dir = Path(__file__).resolve().parent.parent
-    if (parent_dir not in sys.path):
+    if parent_dir not in sys.path:
         sys.path.insert(0, str(parent_dir))
 
 from core.ui_components import UIManager
+
 # Update the import to use our new generator
 from core.game import BacktrackingSudokuGenerator, SimpleSudokuSolver, GameEngine
 from core.controller import GameController
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
+
 
 def main():
     """Main entry point for the Sudoku game."""
@@ -42,13 +47,13 @@ def main():
         # Create the root window
         root = tk.Tk()
         root.title("Mr. Sudoku")
-        
+
         # Set up the window close protocol
         root.protocol("WM_DELETE_WINDOW", lambda: on_closing(root))
-        
+
         # Initialize components for the root window
         game_engine = _initialize_components(root)
-        
+
         # Start the Tkinter event loop
         root.mainloop()
         return 0
@@ -56,15 +61,16 @@ def main():
         logger.critical(f"Error starting game: {e}", exc_info=True)
         return 1
 
+
 def on_closing(root):
     """
     Handle window close event by asking for confirmation.
-    
+
     Args:
         root: The root window
     """
     logger.debug(">>>Main::on_closing - User attempted to close the game")
-    
+
     if messagebox.askyesno("Quit", "Are you sure you want to quit the game?"):
         logger.info("User confirmed exit. Closing game.")
         # Perform any cleanup needed here (save game state, etc.)
@@ -72,17 +78,20 @@ def on_closing(root):
     else:
         logger.debug(">>>Main::on_closing - User canceled exit")
 
+
 def _initialize_components(root):
     """
     Initialize components for the root window.
-    
+
     Args:
         root: The root window
-        
+
     Returns:
         GameController: The initialized game controller
     """
-    logger.debug(">>>Main::initialize_components - Initializing components for the whole game")
+    logger.debug(
+        ">>>Main::initialize_components - Initializing components for the whole game"
+    )
 
     # Use the BacktrackingSudokuGenerator instead of FixedBoardSudokuGenerator
     generator = BacktrackingSudokuGenerator()
@@ -93,6 +102,7 @@ def _initialize_components(root):
 
     controller.start_game(uimanager.get_difficulty())
     return controller
+
 
 if __name__ == "__main__":
     sys.exit(main())
