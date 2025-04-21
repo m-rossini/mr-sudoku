@@ -55,7 +55,7 @@ class UIManager(ControllerDependent):
         logger.debug(">>>UIManager::_create_options_panel - Creating OptionsPanel")
         options_panel = OptionsPanel(parent)
         return options_panel
-    
+
     def _create_difficulty_selector(self, parent):
         """
         Create the difficulty selector.
@@ -179,10 +179,10 @@ class UIManager(ControllerDependent):
         # Clear existing board if any (important for New Game)
         for widget in self.board.frame.winfo_children():
             widget.destroy()
-        self.board = SudokuBoard(self.board_frame, self._on_tile_click)  # Recreate board widget
+        self.board = SudokuBoard(self.board_frame, board, self._on_tile_click)  # Recreate board widget
         self.board.frame.grid(row=0, column=0, padx=10, pady=10, sticky="w")  # Regrid it (not repack)
 
-        self.board._create_board(board)
+        # self.board._create_board(board)
 
         counts = self.controller.numbers_placed_on_board(board)
         logger.debug(f">>>UIManager::start_game - Numbers already placed: {counts}")
@@ -556,7 +556,7 @@ class SudokuTile:
 class SudokuBoard:
     """The 9x9 Sudoku game board."""
 
-    def __init__(self, parent, on_tile_click=None):
+    def __init__(self, parent, board, on_tile_click=None):
         """
         Initialize a new Sudoku board.
 
@@ -576,6 +576,7 @@ class SudokuBoard:
 
         # Currently selected tile position
         self.selected_pos = None
+        self._create_board(board)
 
     def _create_board(self, board):
         """Create the 9x9 Sudoku board with 3x3 boxes."""
