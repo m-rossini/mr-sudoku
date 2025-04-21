@@ -77,7 +77,7 @@ class UIManager(ControllerDependent):
             on_notes_mode_change=self._on_notes_mode_change,
             on_auto_notes_mode_change=self._on_auto_notes_mode_change,
         )
-        self.options_panel.frame.pack(side=tk.TOP, pady=10)
+        self.options_panel._frame.pack(side=tk.TOP, pady=10)
 
         # Create the button panel
         self.button_panel = ButtonPanel(
@@ -1119,12 +1119,12 @@ class OptionsPanel:
             on_auto_notes_mode_change: Callback for Automatic Notes Mode checkbox.
         """
         logger.debug(">>>OptionsPanel::init - Initializing OptionsPanel")
-        self.frame = tk.Frame(parent, padx=10, pady=10)
+        self._frame = tk.Frame(parent, padx=10, pady=10)
 
         # Notes Mode checkbox
         self.notes_mode_var = tk.BooleanVar(value=False)
         self.notes_mode_checkbox = tk.Checkbutton(
-            self.frame,
+            self._frame,
             text="Notes Mode",
             variable=self.notes_mode_var,
             command=lambda: on_notes_mode_change(self.notes_mode_var.get()),
@@ -1134,7 +1134,7 @@ class OptionsPanel:
         # Automatic Notes Mode checkbox
         self.auto_notes_mode_var = tk.BooleanVar(value=False)
         self.auto_notes_mode_checkbox = tk.Checkbutton(
-            self.frame,
+            self._frame,
             text="Automatic Notes Mode",
             variable=self.auto_notes_mode_var,
             command=lambda: on_auto_notes_mode_change(self.auto_notes_mode_var.get()),
