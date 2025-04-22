@@ -51,8 +51,7 @@ def main():
         # Set up the window close protocol
         root.protocol("WM_DELETE_WINDOW", lambda: on_closing(root))
 
-        # Initialize components for the root window
-        game_engine = _initialize_components(root)
+        controller = _initialize_components(root)
 
         # Start the Tkinter event loop
         root.mainloop()

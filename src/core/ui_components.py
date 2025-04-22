@@ -42,6 +42,36 @@ class UIManager(ControllerDependent):
         self._layout_frames()
         self._create_top_level_bindings()
 
+    def start_game(self, board):
+        """
+        Start a new game by displaying the Sudoku board.
+
+        Args:
+            board: The Sudoku board to display.
+        """
+        logger.debug(">>>UIManager::start_game - Starting new game")
+        # Clear existing board if any (important for New Game)
+        for widget in self.board.frame.winfo_children():
+            widget.destroy()
+
+        self.board.update_board_values(board)  # Update the board with new values
+        # self.board = SudokuBoard(self.board_frame, board, self._on_tile_click)  # Recreate board widget
+        self.board.frame.grid(row=0, column=0, padx=10, pady=10, sticky="w")  # Regrid it (not repack)
+
+        # self.board._create_board(board)
+
+        counts = self.controller.numbers_placed_on_board(board)
+        logger.debug(f">>>UIManager::start_game - Numbers already placed: {counts}")
+        self.number_panel.update_all_numbers(counts)
+        self.number_panel.enable_all()
+
+        # Reset and start the info panel/timer
+        self.info_panel.reset()
+        self._start_timer()
+        # Ensure initial wrong moves count is displayed (should be 0)
+        self.info_panel.update_wrong_moves(self.controller._wrong_moves_counter)
+        self.info_panel.update_moves(self.controller._moves_counter)
+
     def _create_options_panel(self, parent):
         """
         Create the options panel for additional game settings.
@@ -110,7 +140,6 @@ class UIManager(ControllerDependent):
         """
         number_panel = NumberPanel(self.board_frame, self._on_number_click)
         number_panel.frame.grid(row=1, column=0, pady=5, sticky="ew")
-        self.root.update_idletasks()
         self.root.after(300, self._adjust_number_panel_width)
         return number_panel
 
@@ -125,7 +154,8 @@ class UIManager(ControllerDependent):
             SudokuBoard: The created Sudoku board.
         """
         logger.debug(">>>UIManager::_create_board - Creating Sudoku board")
-        return SudokuBoard(parent, on_tile_click=self._on_tile_click)
+        empty_board = [[0 for _ in range(9)] for _ in range(9)]
+        return SudokuBoard(parent, empty_board, on_tile_click=self._on_tile_click)
 
     def _create_button_panel(self, parent):
         """
@@ -167,34 +197,6 @@ class UIManager(ControllerDependent):
             self.root.update_idletasks()
             # Verify again
             logger.debug(f">>>UIManager::_adjust_number_panel_width - Number panel width after forced geometry: {self.number_panel.frame.winfo_width()}")
-
-    def start_game(self, board):
-        """
-        Start a new game by displaying the Sudoku board.
-
-        Args:
-            board: The Sudoku board to display.
-        """
-        logger.debug(">>>UIManager::start_game - Starting new game")
-        # Clear existing board if any (important for New Game)
-        for widget in self.board.frame.winfo_children():
-            widget.destroy()
-        self.board = SudokuBoard(self.board_frame, board, self._on_tile_click)  # Recreate board widget
-        self.board.frame.grid(row=0, column=0, padx=10, pady=10, sticky="w")  # Regrid it (not repack)
-
-        # self.board._create_board(board)
-
-        counts = self.controller.numbers_placed_on_board(board)
-        logger.debug(f">>>UIManager::start_game - Numbers already placed: {counts}")
-        self.number_panel.update_all_numbers(counts)
-        self.number_panel.enable_all()
-
-        # Reset and start the info panel/timer
-        self.info_panel.reset()
-        self._start_timer()
-        # Ensure initial wrong moves count is displayed (should be 0)
-        self.info_panel.update_wrong_moves(self.controller._wrong_moves_counter)
-        self.info_panel.update_moves(self.controller._moves_counter)
 
     def set_controller(self, controller):
         """
@@ -607,6 +609,16 @@ class SudokuBoard:
                         self.tiles[row][col] = tile
 
         logger.debug(">>>SudokuBoard::_create_board - Board created with 9x9 grid")
+
+    def update_board_values(self, board):
+        """
+        Update the board with new values.
+
+        Args:
+            board: The new Sudoku board values
+        """
+        logger.debug(">>>SudokuBoard::update_board_values - Updating board values")
+        self._create_board(board)  # Recreate the board with new values
 
     def _handle_tile_click(self, row, col):
         """
