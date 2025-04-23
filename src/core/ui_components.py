@@ -14,6 +14,8 @@ class UIManager(ControllerDependent):
     SOLVE_REQUEST_EVENT = "<<SolveRequest>>"
     NEW_GAME_REQUEST_EVENT = "<<NewGameRequest>>"
     EXIT_GAME_REQUEST_EVENT = "<<ExitGameRequest>>"
+    NOTES_MODE_REQUEST_EVENT = "<<NotesModeRequest>>"
+    AUTO_NOTES_MODE_REQUEST_EVENT = "<<AutoNotesModeRequest>>"
 
     def __init__(self, root, on_closing):
         """
@@ -49,26 +51,19 @@ class UIManager(ControllerDependent):
         Args:
             board: The Sudoku board to display.
         """
-        logger.debug(">>>UIManager::start_game - Starting new game")
+        #i want to time some instructions in this method
+        logger.debug("--------------------------------------------------------------------")
         # Clear existing board if any (important for New Game)
         for widget in self.board.frame.winfo_children():
             widget.destroy()
 
         self.board.update_board_values(board)  # Update the board with new values
-        # self.board = SudokuBoard(self.board_frame, board, self._on_tile_click)  # Recreate board widget
         self.board.frame.grid(row=0, column=0, padx=10, pady=10, sticky="w")  # Regrid it (not repack)
-
-        # self.board._create_board(board)
-
         counts = self.controller.numbers_placed_on_board(board)
-        logger.debug(f">>>UIManager::start_game - Numbers already placed: {counts}")
         self.number_panel.update_all_numbers(counts)
         self.number_panel.enable_all()
-
-        # Reset and start the info panel/timer
         self.info_panel.reset()
         self._start_timer()
-        # Ensure initial wrong moves count is displayed (should be 0)
         self.info_panel.update_wrong_moves(self.controller._wrong_moves_counter)
         self.info_panel.update_moves(self.controller._moves_counter)
 
@@ -132,6 +127,9 @@ class UIManager(ControllerDependent):
         self.control_spacer.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
     def _create_top_level_bindings(self):
+        self.root.bind(UIManager.NOTES_MODE_REQUEST_EVENT, lambda e: self._on_notes_mode(e))
+        self.root.bind(UIManager.AUTO_NOTES_MODE_REQUEST_EVENT, lambda e: self._on_auto_notes_mode(e))
+
         self.root.bind("<Key>", self._on_key_press)
 
     def _create_number_panel(self):
@@ -140,7 +138,6 @@ class UIManager(ControllerDependent):
         """
         number_panel = NumberPanel(self.board_frame, self._on_number_click)
         number_panel.frame.grid(row=1, column=0, pady=5, sticky="ew")
-        self.root.after(300, self._adjust_number_panel_width)
         return number_panel
 
     def _create_board(self, parent):
@@ -180,23 +177,11 @@ class UIManager(ControllerDependent):
         """
         # Get the *exact* board width without padding
         board_width = self.board.frame.winfo_width()
-        logger.debug(f">>>UIManager::_adjust_number_panel_width - Adjusting number panel to match board width: {board_width}")
-
-        # Set width and update the UI
         self.number_panel.set_width(board_width)
-        self.number_panel.frame.update_idletasks()
-
-        # Verify the width is correct
         number_panel_width = self.number_panel.frame.winfo_width()
-        logger.debug(f">>>UIManager::_adjust_number_panel_width - Number panel width after adjustment: {number_panel_width}")
 
         if number_panel_width != board_width:
-            # Try again with forced geometry
-            logger.debug(f">>>UIManager::_adjust_number_panel_width - Width mismatch, forcing geometry")
             self.number_panel.frame.config(width=board_width)
-            self.root.update_idletasks()
-            # Verify again
-            logger.debug(f">>>UIManager::_adjust_number_panel_width - Number panel width after forced geometry: {self.number_panel.frame.winfo_width()}")
 
     def set_controller(self, controller):
         """
@@ -207,6 +192,16 @@ class UIManager(ControllerDependent):
         """
         logger.debug(">>>UIManager::set_controller - Setting controller")
         self.controller = controller
+
+    #the virtual event has data attached
+    def _on_auto_notes_mode(self):
+        """
+        Handle the auto notes mode event.
+        """
+        self.controller.toggle_auto_notes_mode()
+
+    def _on_notes_mode(self,):
+        self.controller.toggle_notes_mode()
 
     def on_game_over(self):
         logger.debug(">>>UIManager::on_game_over - Game over")
@@ -234,11 +229,10 @@ class UIManager(ControllerDependent):
         # Get the currently selected cell, if any
         selected_pos = self.board.get_selected_position()
         if not selected_pos:
-            logger.debug(">>>UIManager::_on_key_press - No cell selected, ignoring key press")
+            logger.info(">>>UIManager::_on_key_press - No cell selected, ignoring key press")
             return
 
         row, col = selected_pos
-        logger.debug(f">>>UIManager::_on_key_press - Selected cell: ({row}, {col}. is_fixed: {self.board.tiles[row][col].is_fixed})")
         if self.board.tiles[row][col].is_fixed:
             return
 
@@ -384,7 +378,6 @@ class UIManager(ControllerDependent):
             # Let the controller start/track the actual timer
             self.controller.start_timer()
             self._timer_running = True
-            logger.debug(">>>UIManager::_start_timer - Timer started")
             self._update_timer_display()  # Start the update loop
 
     def _stop_timer(self):
@@ -398,7 +391,6 @@ class UIManager(ControllerDependent):
             if self._timer_id:
                 self.root.after_cancel(self._timer_id)
                 self._timer_id = None
-            logger.debug(">>>UIManager::_stop_timer - Timer stopped")
 
     def _update_timer_display(self):
         """Updates the timer label every second."""
@@ -414,7 +406,6 @@ class UIManager(ControllerDependent):
         elif self._timer_running:
             # Controller timer is stopped but UI thinks it's running
             self._timer_running = False
-            logger.debug(">>>UIManager::_update_timer_display - Timer stopped (controller)")
 
 
 class SudokuTile:
@@ -999,13 +990,7 @@ class NumberPanel:
         # Make sure the frame doesn't propagate its size from its children
         self.frame.pack_propagate(False)
         self.frame.grid_propagate(False)
-
-        # Force update to apply the new width
-        self.frame.update_idletasks()
-
-        # Verify width was set correctly
         actual_width = self.frame.winfo_width()
-        logger.debug(f">>>NumberPanel::set_width - Actual width after setting: {actual_width}")
 
         # Distribute the width equally among the number cells
         cell_width = width // 9
@@ -1070,6 +1055,7 @@ class NumberPanel:
         logger.debug(f">>>NumberPanel::update_all_numbers - Updating all numbers: {numbers}")
         for number in range(1, 10):
             self.update_number_count(number, numbers.get(number, 0))
+        logger.debug(">>>NumberPanel::update_all_numbers - All numbers updated")
 
     def update_number_count(self, number, count):
         """
@@ -1104,11 +1090,6 @@ class NumberPanel:
             frame.config(bg="white")
             label.config(bg="white", fg="black")
             self.panels[number]["enabled"] = True
-
-        # Force update
-        label.update()
-        frame.update()
-
 
 class InfoPanel:
     """
@@ -1151,17 +1132,17 @@ class InfoPanel:
     def update_time(self, elapsed_time_str):
         """Update the time display."""
         self.time_label.config(text=elapsed_time_str)
-        self.time_label.update_idletasks()  # Ensure immediate update
+        # self.time_label.update_idletasks()  # Ensure immediate update
 
     def update_moves(self, moves):
         """Update the moves display."""
         self.moves_label.config(text=str(moves))
-        self.moves_label.update_idletasks()
+        # self.moves_label.update_idletasks()
 
     def update_wrong_moves(self, wrong_moves):
         """Update the wrong moves display."""
         self.wrong_moves_label.config(text=f"{wrong_moves}/{MAX_WRONG_MOVES}")
-        self.wrong_moves_label.update_idletasks()
+        # self.wrong_moves_label.update_idletasks()
 
     def reset(self):
         """Reset all displays to their initial state."""
@@ -1217,6 +1198,9 @@ class OptionsPanel:
             self.notes_mode_var.get(),
         )
 
+        self.notes_mode_checkbox.event_generate(UIManager.NOTES_MODE_REQUEST_EVENT, when="tail")
+
+
     def _on_auto_notes_mode_selected(self):
         """
         Handle selection events for the Notes Mode checkbox.
@@ -1225,3 +1209,4 @@ class OptionsPanel:
             ">>>OptionsPanel::_on_auto_notes_mode_selected - Notes Mode selected with value of: [%s]",
             self.auto_notes_mode_var.get(),
         )
+        self.auto_notes_mode_checkbox.event_generate(UIManager.AUTO_NOTES_MODE_REQUEST_EVENT, when="tail")

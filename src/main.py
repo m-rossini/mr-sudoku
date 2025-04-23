@@ -51,10 +51,13 @@ def main():
         # Set up the window close protocol
         root.protocol("WM_DELETE_WINDOW", lambda: on_closing(root))
 
+        logger.debug(">>>Main::main - Initializing game components")
         controller = _initialize_components(root)
 
         # Start the Tkinter event loop
+        logger.debug(">>>Main::main - Starting Tkinter event loop")
         root.mainloop()
+        logger.debug(">>>Main::main - Tkinter event loop ended")
         return 0
     except Exception as e:
         logger.critical(f"Error starting game: {e}", exc_info=True)

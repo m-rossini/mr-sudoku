@@ -44,6 +44,9 @@ class GameController:
         self._start_time = None
         self._is_timer_running = False
 
+        self._notes_mode = False # Initialize notes mode
+        self._auto_notes_mode = False # Initialize auto notes mode
+
     def start_game(self, difficulty):
         """
         Start the game by generating a new Sudoku puzzle.
@@ -238,3 +241,39 @@ class GameController:
             bool: True if the timer is running, False otherwise
         """
         return self._is_timer_running
+    
+    def toggle_notes_mode(self):
+        """
+        Toggle the notes mode on or off.
+        """
+        logger.debug(f">>>GameController::toggle_notes_mode - Toggling notes mode. Current state: {self._notes_mode}")
+        self._notes_mode = not self._notes_mode
+        return self._notes_mode
+    
+    def toggle_auto_notes_mode(self):
+        """
+        Toggle the auto notes mode on or off.
+        """
+        logger.debug(f">>>GameController::toggle_auto_notes_mode - Toggling auto notes mode. Current state: {self._auto_notes_mode}")
+        self._auto_notes_mode = not self._auto_notes_mode
+        return self._auto_notes_mode
+    
+    def get_notes_mode(self):
+        """
+        Get the current state of notes mode.
+        
+        Returns:
+            bool: True if notes mode is enabled, False otherwise
+        """
+        logger.debug(f">>>GameController::get_notes_mode - Current notes mode state: {self._notes_mode}")
+        return self._notes_mode
+    
+    def get_auto_notes_mode(self):
+        """
+        Get the current state of auto notes mode.
+        
+        Returns:
+            bool: True if auto notes mode is enabled, False otherwise
+        """
+        logger.debug(f">>>GameController::get_auto_notes_mode - Current auto notes mode state: {self._auto_notes_mode}")
+        return self._auto_notes_mode
