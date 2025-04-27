@@ -5,6 +5,7 @@ import time
 from core.difficulty import Difficulty
 from tkinter import messagebox
 from core.controller import MAX_WRONG_MOVES
+from monitoring.metrics import get_metrics_service
 
 logger = logging.getLogger(__name__)
 
@@ -51,21 +52,35 @@ class UIManager(ControllerDependent):
         Args:
             board: The Sudoku board to display.
         """
-        #i want to time some instructions in this method
         logger.debug("--------------------------------------------------------------------")
-        # Clear existing board if any (important for New Game)
-        for widget in self.board.frame.winfo_children():
-            widget.destroy()
-
-        self.board.update_board_values(board)  # Update the board with new values
-        self.board.frame.grid(row=0, column=0, padx=10, pady=10, sticky="w")  # Regrid it (not repack)
-        counts = self.controller.numbers_placed_on_board(board)
-        self.number_panel.update_all_numbers(counts)
-        self.number_panel.enable_all()
-        self.info_panel.reset()
-        self._start_timer()
-        self.info_panel.update_wrong_moves(self.controller._wrong_moves_counter)
-        self.info_panel.update_moves(self.controller._moves_counter)
+        logger.debug("> UIManager::start_game - Starting a new game")
+        
+        try:
+            # Reset board properly - we need to both destroy widgets AND reset our tile references
+            # First, remove all widgets from the board frame
+            for widget in self.board.frame.winfo_children():
+                widget.destroy()
+                
+            # Reset the board's internal state to ensure it creates a new board
+            self.board.reset_board()
+            
+            # Now update with new values which will trigger board creation
+            self.board.update_board_values(board)
+            
+            # Ensure the board is properly placed in the layout
+            self.board.frame.grid(row=0, column=0, padx=10, pady=10, sticky="w")
+            
+            # Update game state
+            counts = self.controller.numbers_placed_on_board(board)
+            self.number_panel.update_all_numbers(counts)
+            self.number_panel.enable_all()
+            self.info_panel.reset()
+            self._start_timer()
+            self.info_panel.update_wrong_moves(self.controller._wrong_moves_counter)
+            self.info_panel.update_moves(self.controller._moves_counter)
+        except Exception as e:
+            logger.error(">>>> UIManager::start_game - Error starting game: %s", str(e))
+            messagebox.showerror("Error", f"Failed to start new game: {str(e)}")
 
     def _create_options_panel(self, parent):
         """
@@ -305,10 +320,22 @@ class UIManager(ControllerDependent):
 
     def _on_new_game(self):
         """
-        Handle the "New Game" button click.
+        Handle the "New Game" button click with robust error handling.
         """
-        logger.info(">UIManager::_on_new_game - Starting a new game")
-        self.controller.start_game(self.difficulty_selector.get_difficulty())
+        logger.info(">> UIManager::_on_new_game - Starting a new game")
+        try:
+            # Stop the timer before starting a new game
+            self._stop_timer()
+            
+            # Get current difficulty
+            difficulty = self.difficulty_selector.get_difficulty()
+            logger.debug("> UIManager::_on_new_game - Using difficulty: %s", difficulty)
+            
+            # Start a new game with the selected difficulty
+            self.controller.start_game(difficulty)
+        except Exception as e:
+            logger.error(">>>> UIManager::_on_new_game - Error starting new game: %s", str(e))
+            messagebox.showerror("Error", f"Failed to start new game: {str(e)}")
 
     def _on_solve(self):
         """
@@ -382,15 +409,29 @@ class UIManager(ControllerDependent):
 
     def _stop_timer(self):
         """Stops the game timer."""
-
-    def is_timer_running(self):
-        if self.is_timer_running():
+        logger.debug("> UIManager::_stop_timer - Stopping game timer")
+        
+        # Check if the timer exists using direct attribute access
+        if hasattr(self, '_timer_running') and getattr(self, '_timer_running', False):
             self._timer_running = False
             # Tell the controller to stop its timer
             self.controller.stop_timer()
-            if self._timer_id:
+            
+            # Cancel any pending timer updates
+            if hasattr(self, '_timer_id') and self._timer_id:
                 self.root.after_cancel(self._timer_id)
                 self._timer_id = None
+
+    def is_timer_running(self):
+        """
+        Check if the timer is currently running.
+        
+        Returns:
+            bool: True if the timer is running, False otherwise
+        """
+        logger.debug("> UIManager::is_timer_running - Checking if timer is running")
+        # Use the controller to check the timer status
+        return hasattr(self, '_timer_running') and self._timer_running
 
     def _update_timer_display(self):
         """Updates the timer label every second."""
@@ -569,7 +610,7 @@ class SudokuBoard:
 
         # Currently selected tile position
         self.selected_pos = None
-        self._create_board(board)
+        # self._create_board(board)
 
     def _create_board(self, board):
         """Create the 9x9 Sudoku board with 3x3 boxes."""
@@ -603,13 +644,64 @@ class SudokuBoard:
 
     def update_board_values(self, board):
         """
-        Update the board with new values.
+        Update the board with new values. Creates the board if it doesn't exist yet.
 
         Args:
             board: The new Sudoku board values
         """
-        logger.debug(">>>SudokuBoard::update_board_values - Updating board values")
-        self._create_board(board)  # Recreate the board with new values
+        logger.debug("> SudokuBoard::update_board_values - Updating board values")
+        
+        # Check if we need to create the board from scratch
+        if self.tiles[0][0] is None:
+            logger.debug("> SudokuBoard::update_board_values - Board not initialized, creating board")
+            self._create_board(board)
+            return
+        
+        # If board exists, update the values safely
+        try:
+            # If board exists, just update the values
+            for row in range(9):
+                for col in range(9):
+                    tile = self.tiles[row][col]
+                    # Check if the tile's widgets still exist by accessing a property
+                    try:
+                        tile.frame.winfo_exists()
+                        tile.set_value(board[row][col])
+                        # If the tile is fixed, set it to fixed
+                        if board[row][col] != 0:
+                            tile.is_fixed = True
+                            tile.label.config(bg="#f0f0f0")
+                        else:
+                            tile.is_fixed = False
+                            tile.label.config(bg="white")
+                    except (tk.TclError, AttributeError):
+                        logger.warning(">> SudokuBoard::update_board_values - Tile widget no longer exists at position (%d, %d)", row, col)
+                        # This indicates we should recreate the board
+                        return
+                        
+            # Clear selected position and highlights
+            self.selected_pos = None
+            self.clear_highlights()
+        except Exception as e:
+            logger.error(">>>> SudokuBoard::update_board_values - Error updating board: %s", str(e))
+            # If we encounter any errors, recreate the board
+            for box in self.frame.winfo_children():
+                box.destroy()
+            self.tiles = [[None for _ in range(9)] for _ in range(9)]
+            self._create_board(board)
+
+    def reset_board(self):
+        """
+        Reset the board's internal state by clearing all tile references and widgets.
+        This ensures a fresh board will be created when update_board_values is called.
+        """
+        logger.debug("> SudokuBoard::reset_board - Resetting board state")
+        
+        # Clear all tile references
+        self.tiles = [[None for _ in range(9)] for _ in range(9)]
+        
+        # Clear selected position
+        self.selected_pos = None
 
     def _handle_tile_click(self, row, col):
         """
@@ -806,6 +898,10 @@ class ButtonPanel:
         # if yes, then call the command
         if response:
             logger.info(">>>ButtonPanel::confirm_new_game - User confirmed new game")
+            # Record button click in metrics
+            metrics = get_metrics_service()
+            if metrics:
+                metrics.record_button_click("new_game")
             self.new_game_button.event_generate(UIManager.NEW_GAME_REQUEST_EVENT)
         else:
             logger.debug(">>>ButtonPanel::confirm_new_game - User canceled new game")
@@ -816,6 +912,10 @@ class ButtonPanel:
         Handle the "Solve" button click.
         """
         logger.debug(">>>ButtonPanel::_on_solve - Solve button clicked")
+        # Record button click in metrics
+        metrics = get_metrics_service()
+        if metrics:
+            metrics.record_button_click("solve")
         self.solve_button.event_generate(UIManager.SOLVE_REQUEST_EVENT)
 
     def _on_exit(self):
@@ -823,6 +923,10 @@ class ButtonPanel:
         Handle the "Exit" button click.
         """
         logger.debug(">>>ButtonPanel::_on_exit - Exit button clicked")
+        # Record button click in metrics
+        metrics = get_metrics_service()
+        if metrics:
+            metrics.record_button_click("exit")
         self.exit_button.event_generate(UIManager.EXIT_GAME_REQUEST_EVENT)
 
 
@@ -879,6 +983,11 @@ class DifficultySelector:
         logger.debug(f">>>DifficultySelector::set_difficulty - Setting difficulty to {difficulty}")
         self.difficulty_var.set(difficulty.value)
         self._previous_difficulty = difficulty.value
+        
+        # Record button click in metrics
+        metrics = get_metrics_service()
+        if metrics:
+            metrics.record_button_click(f"difficulty_{difficulty.value.lower()}")
 
     def get_difficulty(self):
         """
@@ -1009,6 +1118,11 @@ class NumberPanel:
 
         # Only respond to clicks if the panel is enabled
         if number in self.panels and self.panels[number]["enabled"]:
+            # Record button click in metrics
+            metrics = get_metrics_service()
+            if metrics:
+                metrics.record_button_click(f"number_{number}")
+                
             # Provide visual feedback for the click
             self._flash_panel(number)
 
@@ -1197,16 +1311,27 @@ class OptionsPanel:
             ">>>OptionsPanel::_on_notes_mode_selected - Notes Mode selected with value of: [%s]",
             self.notes_mode_var.get(),
         )
+        
+        # Record button click in metrics
+        metrics = get_metrics_service()
+        if metrics:
+            metrics.record_button_click("notes_mode_toggle")
 
         self.notes_mode_checkbox.event_generate(UIManager.NOTES_MODE_REQUEST_EVENT, when="tail")
 
 
     def _on_auto_notes_mode_selected(self):
         """
-        Handle selection events for the Notes Mode checkbox.
+        Handle selection events for the Auto Notes Mode checkbox.
         """
         logger.debug(
             ">>>OptionsPanel::_on_auto_notes_mode_selected - Notes Mode selected with value of: [%s]",
             self.auto_notes_mode_var.get(),
         )
+        
+        # Record button click in metrics
+        metrics = get_metrics_service()
+        if metrics:
+            metrics.record_button_click("auto_notes_mode_toggle")
+            
         self.auto_notes_mode_checkbox.event_generate(UIManager.AUTO_NOTES_MODE_REQUEST_EVENT, when="tail")
